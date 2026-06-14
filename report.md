@@ -68,11 +68,28 @@ reliably reproducible:
 
 ## 3. Test Oracle
 
-Explain how your oracle decides whether the program passed or failed.
+The oracle treats an execution as **expected (pass)** when `normalize_config()` either returns a
+normalized dictionary or raises a clean `ConfigError` (the parser's designed way to reject invalid
+input). It reports a **failure** only when some *other* exception escapes `normalize_config()` — an
+uncontrolled crash such as the `AttributeError` from `parse_bool(None)`, which `app.py`'s
+`except ConfigError` cannot catch. The oracle lives in `tests/oracle.py` and is reused by the tests
+in Section 4.
 
 ```python
+from src.config_parser import normalize_config, ConfigError
 
+def is_failure(raw_config):
+    try:
+        normalize_config(raw_config)
+    except ConfigError:
+        return False   # controlled rejection -> expected
+    except Exception:
+        return True    # uncontrolled crash -> FAILURE
+    return False       # normalized successfully -> expected
 ```
+
+At the program level this maps to: PASS = exit code 0 (`CONFIG_OK`) or exit code 1 with a
+`CONFIG_ERROR:` message; FAIL = the process aborts with an uncaught traceback.
 
 ---
 

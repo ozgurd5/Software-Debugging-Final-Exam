@@ -132,6 +132,11 @@ Bağlayıcıdır.
 13. **Satır sarma (markdown).** Uzun satırları ~100 karakterde elle böl (hard wrap) ki IDE'de
     kaynak olarak yatay kaydırmadan okunsun. Liste maddelerinin devam satırlarını 2 boşluk girintile.
     (PyCharm'da Settings → Editor → General → Soft Wraps ile de açılabilir.)
+14. **Kod tutarlılığı.** Yeni kod mevcut kod stiline uysun. Gereksiz/uzun yorum veya docstring ekleme;
+    neyin ne yaptığını zaten 3 açıklama dosyası (`report.md`, `exam_answers.md`,
+    `question_explanations.md`) anlatır.
+15. **Gereksiz karmaşıklıktan kaçın.** Kullanılmayan fonksiyon/parametre/soyutlama ekleme; en yalın
+    çözümü seç. Tek fonksiyon yetiyorsa ikincisini yazma. Sadelik > gösteriş.
 
 ### 2.1 Teslim formatı
 Zip'in **içi DÜZ** olmalı: kökünde doğrudan `src/ tests/ inputs/ report.md README.md debugging_logs/`

@@ -67,3 +67,51 @@ sınav için önemli: "crash" derken kastımız, programın hata yönetiminin **
 Sınav 4 şey ister: (1) komut, (2) alınan hata mesajı, (3) tekrar-üretilebilirlik açıklaması,
 (4) hata türü. Doldurulmuş hâlleri `report.md` §2 ve `exam_answers.md` S1'dedir. (Rapor şablonunda
 "tekrar-üretilebilirlik" ayrı bir alan değildir; biz §2'nin içine ekledik — bkz. CLAUDE.md §2.4.)
+
+---
+
+## Soru 2 — Test Oracle (Test Oracle Oluşturma)
+
+### 1. Oracle nedir?
+Bir **test oracle**, bir çalıştırmanın sonucunun **doğru mu yanlış mı** olduğuna karar veren
+mekanizmadır. "Programı çalıştırdım; peki sonuç DOĞRU mu?" sorusunu cevaplar. Oracle olmadan testi
+otomatikleştiremezsin: girdi verirsin ama "geçti mi, kaldı mı" kararını birinin vermesi gerekir.
+
+### 2. Oracle türleri (kısaca)
+- **Specified (belirtilmiş):** Beklenen çıktı bir spesifikasyondan bilinir (örn. "2+2=4").
+- **Derived / reference:** Doğru bilinen başka bir sürüm/kaynakla karşılaştırma.
+- **Implicit (örtük):** Bazı davranışlar her zaman yanlıştır — çökme, yakalanmayan istisna. Bunları
+  bir "spec" olmadan da yanlış sayarız.
+
+Burada **örtük oracle** (çökme = yanlış) ile bir **spesifikasyon parçasını** (geçersiz girdi için
+`ConfigError` = doğru/beklenen) birleştiriyoruz.
+
+### 3. Kilit ayrım: ConfigError bir FAILURE DEĞİLDİR
+Sezgi "istisna = hata" der; ama burada ikisini ayırmak şart:
+- `ConfigError` fırlatmak → program **doğru** çalışıyor: geçersiz girdiyi **kontrollü** biçimde
+  reddediyor (tasarım bu). `app.py` bunu yakalar, temiz `CONFIG_ERROR` basar. → **PASS**
+- Normal dönmek (config normalize edildi) → **PASS**
+- Başka bir istisnanın (`AttributeError`, `TypeError`, ...) yakalanmadan yayılması → **FAILURE**:
+  kimsenin beklemediği, kontrolsüz çökme. `app.py`'nin `except ConfigError`'ı bunu yakalayamaz,
+  program traceback ile sonlanır.
+
+Yani sınırı **istisnanın TÜRÜNE** göre çiziyoruz: `ConfigError` = beklenen; gerisi = failure.
+**Bu ayrım neden kritik?** `ConfigError`'ı da failure sayarsak, hatayı düzelttiğimizde (`null` →
+temiz `ConfigError`) oracle bizim **doğru çözümümüzü** de "failure" işaretler — yani fix'i
+doğrulayamaz hâle gelir. Bu yüzden `ConfigError` PASS olmak **zorundadır**. "Her istisna = failure"
+deseydik oracle, bug'ı (crash) ile doğru reddi (`ConfigError`) ayıramaz, işe yaramazdı.
+
+### 4. Neden otomatik olmalı?
+- **Soru 3:** 8+ test yazacağız; her birinin pass/fail'ine elle bakmak yerine oracle otomatik söyler.
+- **Soru 5 (delta debugging):** Onlarca küçültme denemesini otomatik "hâlâ patlıyor mu?" diye kontrol
+  etmek gerekir — oracle bunu mümkün kılar.
+
+### 5. Bizim oracle bu hatayı nasıl yakalıyor?
+`tests/oracle.py` → `is_failure(raw_config)`: `normalize_config`'i çağırır; `ConfigError` ya da normal
+dönüş → `False` (beklenen), başka istisna → `True` (failure). `"debug": null` verilince
+`parse_bool(None)` → `AttributeError` → oracle `True` döndürür (hatayı doğru biçimde "failure" işaretler).
+Doğrulandı: `valid_basic`/`valid_full` → expected, `large_config_failure` → FAILURE.
+
+### 6. Soru 2 ne istiyor, biz ne yazıyoruz?
+Sınav: oracle fonksiyonu + nasıl karar verdiği. Doldurulmuş hâlleri `report.md` §3 ve
+`exam_answers.md` S2'de; çalışan kod `tests/oracle.py`'de.

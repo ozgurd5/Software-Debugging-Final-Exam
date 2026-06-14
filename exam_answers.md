@@ -33,8 +33,23 @@
 ---
 
 ## Soru 2 — Test Oracle
-- **Oracle fonksiyonu (kısa):**
-- **Nasıl karar veriyor** (pass mi fail mi):
+- **Oracle fonksiyonu:** `tests/oracle.py` içindeki `is_failure(raw_config)`:
+  ```python
+  from src.config_parser import normalize_config, ConfigError
+  def is_failure(raw_config):
+      try:
+          normalize_config(raw_config)
+      except ConfigError:
+          return False   # kontrollü ret -> beklenen
+      except Exception:
+          return True    # kontrolsüz çökme -> FAILURE
+      return False       # başarıyla normalize -> beklenen
+  ```
+- **Nasıl karar veriyor** (pass mi fail mi): `normalize_config` ya normal döner (kabul) ya da temiz
+  bir `ConfigError` fırlatır (kontrollü ret) → ikisi de **beklenen = PASS**. Bunların dışında bir
+  istisna (örn. `AttributeError`) yakalanmadan yayılırsa → **FAILURE** (kontrolsüz çökme; `app.py`'nin
+  `except ConfigError`'ı yakalayamaz). Program düzeyinde: PASS = çıkış 0 (`CONFIG_OK`) veya çıkış 1
+  + `CONFIG_ERROR:`; FAIL = yakalanmamış traceback ile çöküş.
 
 ---
 
