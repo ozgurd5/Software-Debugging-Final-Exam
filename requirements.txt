@@ -1,0 +1,5 @@
+# Yalnızca yerel geliştirme/test içindir — TESLİME GİRMEZ.
+# Tek bağımlılık: pytest (test setini çalıştırmak için).
+# Uygulama kodu sadece standart kütüphaneyi kullanır (json, pathlib, sys).
+# Python 3.13.2 + pytest 9.1.0 ile test edildi.
+pytest>=7.0

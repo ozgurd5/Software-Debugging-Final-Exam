@@ -1,0 +1,61 @@
+{
+  "metadata": {
+    "name": "production-api",
+    "owner": "platform-team",
+    "version": "2.4.1",
+    "notes": [
+      "This file is intentionally larger than necessary.",
+      "Only a small part of it is relevant to the failure."
+    ]
+  },
+  "server": {
+    "host": "api.example.com",
+    "port": 443
+  },
+  "features": {
+    "cache": true,
+    "debug": null,
+    "experimental": false,
+    "recommendations": true,
+    "new_checkout": false
+  },
+  "limits": {
+    "max_users": 1000,
+    "timeout": 45,
+    "retries": 3
+  },
+  "logging": {
+    "level": "INFO",
+    "destination": "stdout"
+  },
+  "services": {
+    "search": {
+      "enabled": true,
+      "replicas": 3,
+      "endpoint": "https://search.example.com"
+    },
+    "payments": {
+      "enabled": true,
+      "replicas": 2,
+      "endpoint": "https://payments.example.com"
+    },
+    "notifications": {
+      "enabled": false,
+      "replicas": 1,
+      "endpoint": "https://notifications.example.com"
+    }
+  },
+  "security": {
+    "cors": {
+      "allowed_origins": [
+        "https://example.com",
+        "https://admin.example.com"
+      ],
+      "allow_credentials": true
+    },
+    "rate_limit": {
+      "enabled": true,
+      "requests_per_minute": 120
+    }
+  }
+}

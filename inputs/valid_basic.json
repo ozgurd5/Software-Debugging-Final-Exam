@@ -1,0 +1,14 @@
+{
+  "server": {
+    "host": "localhost",
+    "port": 8080
+  },
+  "features": {
+    "cache": true,
+    "debug": false
+  },
+  "limits": {
+    "max_users": 100,
+    "timeout": 30
+  }
+}
