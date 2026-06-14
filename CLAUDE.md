@@ -137,6 +137,12 @@ Bağlayıcıdır.
     `question_explanations.md`) anlatır.
 15. **Gereksiz karmaşıklıktan kaçın.** Kullanılmayan fonksiyon/parametre/soyutlama ekleme; en yalın
     çözümü seç. Tek fonksiyon yetiyorsa ikincisini yazma. Sadelik > gösteriş.
+16. **Önce öğret, sonra sor.** Bir karar kavram bilgisi gerektiriyorsa, önce o kavramı anlat
+    (`question_explanations.md`'de veya yanıtta); kullanıcı anlamadan seçim yaptırma. Öğrenmek bu
+    projenin amacıdır.
+17. **Nesnel değerlendir, körü körüne onaylama.** Kullanıcının iddialarını da bağımsız olarak,
+    baştan ve kanıtla değerlendir; kullanıcı da yanılabilir. Refleksif "haklısın" deme — önce gerekçe/
+    kanıt göster; doğrulayınca katıl, yanlışsa kanıtla karşı çık. (Kural 3'ü güçlendirir; yağcılık yok.)
 
 ### 2.1 Teslim formatı
 Zip'in **içi DÜZ** olmalı: kökünde doğrudan `src/ tests/ inputs/ report.md README.md debugging_logs/`

@@ -54,10 +54,24 @@
 ---
 
 ## Soru 3 — Passing ve Failing Testler (≥5 passing, ≥3 failing)
+Testler `tests/test_config_cases.py`'de (hocanın `test_config_parser.py`'sine dokunulmadı). Testler,
+hocanın baktığından **farklı** dalları sınar (logging.level ve bölüm-tipi doğrulaması, alternatif
+boolean biçimleri, oracle, 4 bug vakası) — tekrar değil. Güncel çalıştırma: **11 passed, 4 failed**.
+4 failing test doğru davranışı (temiz `ConfigError`) bekler; yalnızca bug yüzünden kırmızıdır, S9
+patch'inden sonra yeşile döner.
 
 | Test adı | Input özeti | Beklenen sonuç | Gerçek sonuç | Passing/Failing |
 |---|---|---|---|---|
-| | | | | |
+| test_valid_minimal_defaults | boş server/features/limits | varsayılanlarla normalize dict (port 8080, level INFO, ...) | beklenen gibi | Passing |
+| test_alternative_string_booleans | cache="1", debug="0", experimental="yes" | True, False, True | beklenen gibi | Passing |
+| test_real_booleans_passthrough | cache=true, debug=false | cache=True, debug=False | beklenen gibi | Passing |
+| test_oracle_marks_valid_config_as_expected | geçerli bir config dict (oracle ile) | is_failure → False | False | Passing |
+| test_invalid_logging_level_raises_config_error | logging.level = "VERBOSE" | ConfigError | ConfigError | Passing |
+| test_non_object_section_raises_config_error | server = "localhost" (string, object değil) | ConfigError | ConfigError | Passing |
+| test_null_debug_raises_config_error | features.debug = null | ConfigError (temiz ret) | AttributeError ('NoneType'de 'lower' yok) | **Failing** |
+| test_int_boolean_raises_config_error | features.cache = 1 (int) | ConfigError | AttributeError ('int'de 'lower' yok) | **Failing** |
+| test_list_boolean_raises_config_error | features.experimental = [] (list) | ConfigError | AttributeError ('list'te 'lower' yok) | **Failing** |
+| test_large_config_file_raises_config_error | gerçek inputs/large_config_failure.json (debug=null) | ConfigError | AttributeError çökme (config_parser.py:150) | **Failing** |
 
 ---
 

@@ -95,9 +95,25 @@ At the program level this maps to: PASS = exit code 0 (`CONFIG_OK`) or exit code
 
 ## 4. Passing and Failing Tests
 
+The tests live in `tests/test_config_cases.py` (the bundled `tests/test_config_parser.py` is left
+untouched). They deliberately exercise *different* checks from the bundled suite — logging-level and
+section-type validation, alternative boolean spellings, the oracle, and four bug cases — rather than
+repeating it. Current run — **11 passed, 4 failed**. The four failing tests assert the *correct*
+behaviour (a clean `ConfigError`) and are red only because of the bug; they turn green after the
+patch (Section 10), as shown in Section 11.
+
 | Test name | Input summary | Expected result | Actual result | Pass/Fail |
 |---|---|---|---|---|
-| | | | | |
+| test_valid_minimal_defaults | empty server/features/limits | normalized dict with defaults (port 8080, level INFO, ...) | as expected | Pass |
+| test_alternative_string_booleans | features cache="1", debug="0", experimental="yes" | True, False, True | as expected | Pass |
+| test_real_booleans_passthrough | features cache=true, debug=false | cache=True, debug=False | as expected | Pass |
+| test_oracle_marks_valid_config_as_expected | a valid config dict (via oracle) | is_failure → False | False | Pass |
+| test_invalid_logging_level_raises_config_error | logging.level = "VERBOSE" | ConfigError | ConfigError | Pass |
+| test_non_object_section_raises_config_error | server = "localhost" (string, not object) | ConfigError | ConfigError | Pass |
+| test_null_debug_raises_config_error | features.debug = null | ConfigError (clean reject) | AttributeError ('NoneType' has no 'lower') | **Fail** |
+| test_int_boolean_raises_config_error | features.cache = 1 (int) | ConfigError | AttributeError ('int' has no 'lower') | **Fail** |
+| test_list_boolean_raises_config_error | features.experimental = [] (list) | ConfigError | AttributeError ('list' has no 'lower') | **Fail** |
+| test_large_config_file_raises_config_error | real inputs/large_config_failure.json (debug=null) | ConfigError | AttributeError crash (config_parser.py:150) | **Fail** |
 
 ---
 
