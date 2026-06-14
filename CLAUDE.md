@@ -49,6 +49,7 @@ Software-Debugging-Final-Exam/   <- repo kökü = PyCharm Project Root + Source 
 ├─ CLAUDE.md             <- bu dosya (hafıza)
 ├─ exam_answers.md       <- sınav kağıdı cevapları (Türkçe)
 ├─ claude_mistakes.md    <- hata günlüğü + sayaç
+├─ question_explanations.md <- soru başına öğrenme notları (kavram/ön bilgi)
 ├─ make_submission.ps1   <- teslim zip'ini üretir (yalnızca yerel)
 ├─ requirements.txt      <- pytest (yalnızca yerel)
 ├─ .venv/  .idea/  .pytest_cache/  .git/  .gitignore
@@ -73,7 +74,9 @@ app.py: main()
 
 ### 1.5 Ortam (DOĞRULANMIŞ)
 - **Python:** 3.13.2.
-- **`python` / `python3` ÇALIŞMAZ** (Windows Store sahte kısayolu). **`py`** kullan.
+- **Komutlar:** En güvenlisi `py` (uygulama) ve `.venv\Scripts\python.exe` (testler) — her kabukta
+  çalışır. User PATH'te gerçek Python 3.13.2 ilk sırada olduğu için yeni açılan kabuklarda
+  `python`/`pip` de çalışır (`python3` Store kısayoluna düşebilir; `python` veya `py` kullan).
 - **venv:** repo kökünde `.venv` (Python 3.13.2 + **pytest 9.1.0**). PyCharm bunu kullanır.
   Global `py`'de pytest YOK → testleri venv python'u ile çalıştır.
 - **PyCharm:** Project Root = repo kökü; repo kökü Source Root olarak işaretli
@@ -126,13 +129,16 @@ Bağlayıcıdır.
 12. **Hata günlüğü (`claude_mistakes.md`).** Kullanıcı seni her düzelttiğinde: hatayı, neden saçma
     olduğunu, neyi gözden kaçırdığını yaz; en üstteki **hata sayacını +1** artır. Hata kullanıcının
     zamanını çalar ve güvenilirliğini düşürür.
+13. **Satır sarma (markdown).** Uzun satırları ~100 karakterde elle böl (hard wrap) ki IDE'de
+    kaynak olarak yatay kaydırmadan okunsun. Liste maddelerinin devam satırlarını 2 boşluk girintile.
+    (PyCharm'da Settings → Editor → General → Soft Wraps ile de açılabilir.)
 
 ### 2.1 Teslim formatı
 Zip'in **içi DÜZ** olmalı: kökünde doğrudan `src/ tests/ inputs/ report.md README.md debugging_logs/`
 (sarmalayıcı klasör YOK). Zip adı: **`2022280084_ozgurdalbeler_final.zip`**, `make_submission.ps1` ile üretilir.
 - **Girenler:** `src/`, `tests/`, `inputs/`, `report.md`, `README.md`, `debugging_logs/`
 - **GİRMEYENLER:** `docs/`, `FINAL_QUESTION.md` (hoca ref); `CLAUDE.md`, `exam_answers.md`,
-  `claude_mistakes.md`, `make_submission.ps1`, `requirements.txt` (çalışma); `.venv/ .idea/ .pytest_cache/ .git/ .gitignore`, `.docx`
+  `claude_mistakes.md`, `question_explanations.md`, `make_submission.ps1`, `requirements.txt` (çalışma); `.venv/ .idea/ .pytest_cache/ .git/ .gitignore`, `.docx`
 - **Ayrıca** yazılı sınav kağıdı resmî sınav tarihinde elden; **tutanakta imza zorunlu** (yoksa girmemiş sayılır).
 
 ### 2.2 Bilinen tutarsızlıklar (sınav belgeleri arası)
@@ -142,5 +148,23 @@ Zip'in **içi DÜZ** olmalı: kökünde doğrudan `src/ tests/ inputs/ report.md
 - **README komutları** (`python`, `pytest`) bu ortamda çalışmaz → `py` + venv.
 
 ### 2.3 İlerleme
-9 soru + 2 bonus + final derleme görev listesinde takip edilir. Her sorunun çıktısı hem `report.md`
-(İngilizce) hem `exam_answers.md` (Türkçe) içine işlenir; loglar `debugging_logs/` içine kaydedilir.
+9 soru + 2 bonus + final derleme görev listesinde takip edilir. Her sorunun çıktısı üç dosyaya işlenir:
+`report.md` (İngilizce, teslim), `exam_answers.md` (Türkçe, teslim) ve `question_explanations.md`
+(Türkçe, yalnızca öğrenme için — kavram/ön bilgi anlatımı; teslime girmez). İlgili loglar
+`debugging_logs/` içine kaydedilir.
+
+### 2.4 Rapor (report.md) ↔ Sınav (exam_answers.md) gereksinim farkları
+İkisi de tam ve aynı derinliktedir; yalnızca düzenleri farklı. `report.md` 13 başlığı (template)
+izler; `exam_answers.md` 9 soru + 2 bonusu izler. Sınav, şablonda **alanı olmayan** bazı şeyleri
+ister; bunlar report.md'de ilgili bölümün **içine** eklenir (yeni üst başlık açmadan):
+
+| Şablon bölümü | Sınav | Şablonda olmayan ekstra istek |
+|---|---|---|
+| §2 Failure Reproduction | S1 | **Tekrar-üretilebilirlik açıklaması** |
+| §6 Delta Debugging | S5 | **"Neden failure üretiyor"** + kaldı/kayboldu ayrımı |
+| §7 Trace/Logging | S6 | 4 spesifik gözlem: işlenen bölümler · normalize alanlar · **yanlış tipteki değer** · çöküş öncesi fonksiyon+değişken değerleri |
+| §10+§11 Patch+Validation | S9 | **"Diğer geçerli config'leri bozar mı?"** (ayrıca sınav patch+doğrulamayı tek soruda birleştirir) |
+
+Küçük farklar: sayı şartları (S3 ≥5 pass/≥3 fail, Bonus B ≥5 mutant); S7'nin açık "varsayım"
+maddesi; Bonus A'nın "neden regresyon testi" açıklaması; §1 ortam-bilgisi ↔ sınav kağıdı imza bloğu.
+Tam örtüşenler: S2/§3, S4/§5, S8/§9.

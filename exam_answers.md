@@ -6,18 +6,29 @@
 > `report.md` ile tutarlıdır; ancak sınav soruları ile rapor şablonu bazı noktalarda (örn. S1, S5,
 > S6, S9) farklı şeyler istediğinden birebir aynı değildir.
 
-| Ad Soyad |  | Öğrenci No |  |
-|---|---|---|---|
-| Bölüm |  | Tarih |  |
-| İmza |  | | |
-
 ---
 
 ## Soru 1 — Hatanın Yeniden Üretimi
-- **Çalıştırma komutu:**
-- **Alınan hata mesajı / yanlış çıktı:**
-- **Tekrar üretilebilirlik (kısa açıklama):**
-- **Hata türü** (crash / wrong output / beklenmeyen davranış):
+- **Çalıştırma komutu:** (proje kökünden) `python src/app.py inputs/large_config_failure.json`
+- **Alınan hata mesajı / yanlış çıktı:** Program `CONFIG_OK` ya da temiz bir `CONFIG_ERROR`
+  yerine yakalanmayan bir istisnayla **çöküyor** (çıkış kodu 1). İlgili traceback:
+  ```text
+  ...
+  File "src/config_parser.py", line 73, in normalize_features
+      debug = parse_bool(features.get("debug", False))
+  File "src/config_parser.py", line 150, in parse_bool
+      lowered = value.lower()
+  AttributeError: 'NoneType' object has no attribute 'lower'
+  ```
+- **Tekrar üretilebilirlik (kısa açıklama):** Komut her çalıştırıldığında aynı satırda
+  (`config_parser.py:150`, `parse_bool` içinde) aynı traceback ile **%100 deterministik** olarak
+  başarısız olur; sonuç yalnızca input dosyasına bağlıdır (rastgelelik/zaman/dış durum yok).
+  `valid_basic.json` ve `valid_full.json` her zaman `CONFIG_OK` verir → tek değişken input
+  dosyasıdır, hata güvenilir biçimde yeniden üretilebilir.
+- **Hata türü** (crash / wrong output / beklenmeyen davranış): **Crash** — yakalanmayan `AttributeError`. `app.py` 
+  yalnızca `ConfigError` yakaladığı için (satır 17) bu istisna yakalanmaz, en üste yayılır ve program traceback ile 
+  çöker. Yanlış çıktı değildir (ne `CONFIG_OK` ne temiz `CONFIG_ERROR`); mevcut tasarımda `ConfigError` 
+  beklendiğinden "beklenmeyen davranış" olarak nitelenir.
 
 ---
 
