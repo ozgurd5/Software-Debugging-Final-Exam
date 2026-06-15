@@ -56,7 +56,8 @@
 ## Soru 3 — Passing ve Failing Testler (≥5 passing, ≥3 failing)
 Testler `tests/test_config_cases.py`'de (hocanın `test_config_parser.py`'sine dokunulmadı). Testler,
 hocanın baktığından **farklı** dalları sınar (logging.level ve bölüm-tipi doğrulaması, alternatif
-boolean biçimleri, oracle, 4 bug vakası) — tekrar değil. Güncel çalıştırma: **11 passed, 4 failed**.
+boolean biçimleri, oracle, 4 bug vakası) — tekrar değil. Güncel çalıştırma: **11 passed, 4 failed** (fix öncesi tam çıktı:
+`debugging_logs/test_results.md`).
 4 failing test doğru davranışı (temiz `ConfigError`) bekler; yalnızca bug yüzünden kırmızıdır, S9
 patch'inden sonra yeşile döner.
 
@@ -233,7 +234,8 @@ bu `parse_bool`'a geçer.
    `"true"/"yes"/"1"` gibi geçerli string'ler `str` olduğundan korumadan geçip eskisi gibi çalışır.
    Doğrulama: `valid_basic.json` ve `valid_full.json` → patch sonrası **CONFIG_OK** (çıkış 0), değişmedi.
 4. **Hangi testlerle doğrulandı (tüm testler geçti mi):** Tüm suite —
-   `.venv\Scripts\python.exe -m pytest -q` → **15 passed**. Patch öncesi 11 passed / 4 failed idi; S3'teki
+   `.venv\Scripts\python.exe -m pytest -q` → **15 passed** (fix öncesi/sonrası tam çıktı:
+   `debugging_logs/test_results.md`). Patch öncesi 11 passed / 4 failed idi; S3'teki
    4 failing test (`null`/`int`/`list`/large-file → `ConfigError` bekleyen) artık **geçiyor**, geçenler
    bozulmadı. Ayrıca `large_config_failure.json` → `CONFIG_ERROR: Invalid boolean value: None` (traceback yok).
 

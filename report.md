@@ -98,7 +98,7 @@ At the program level this maps to: PASS = exit code 0 (`CONFIG_OK`) or exit code
 The tests live in `tests/test_config_cases.py` (the bundled `tests/test_config_parser.py` is left
 untouched). They deliberately exercise *different* checks from the bundled suite — logging-level and
 section-type validation, alternative boolean spellings, the oracle, and four bug cases — rather than
-repeating it. Current run — **11 passed, 4 failed**. The four failing tests assert the *correct*
+repeating it. Current run — **11 passed, 4 failed** (full before-fix output: `debugging_logs/test_results.md`). The four failing tests assert the *correct*
 behaviour (a clean `ConfigError`) and are red only because of the bug; they turn green after the
 patch (Section 10), as shown in Section 11.
 
@@ -378,7 +378,8 @@ $ py src/app.py inputs/large_config_failure.json   # CONFIG_ERROR: Invalid boole
 Before the fix the suite was 11 passed / 4 failed and `large_config_failure.json` crashed with an
 uncaught `AttributeError`. After the fix all 15 tests pass — the 4 type tests (§4) now get the
 `ConfigError` they expect — the valid configs still report `CONFIG_OK`, and the failing config exits
-with a clean `CONFIG_ERROR` (no traceback).
+with a clean `CONFIG_ERROR` (no traceback). The full before-and-after `pytest` runs are captured in
+`debugging_logs/test_results.md`.
 
 ---
 
