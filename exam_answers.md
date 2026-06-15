@@ -76,12 +76,22 @@ patch'inden sonra yeşile döner.
 ---
 
 ## Soru 4 — Scientific Debugging (≥3 hipotez)
+Her hipotez **kontrollü bir deneyle** sınandı: gerçek failing input
+`inputs/large_config_failure.json`'dan başlayıp **tek bir şeyi** değiştirerek sonucu gözledik
+(sorunsuz normalize / temiz `ConfigError` / kontrolsüz crash). Deneyler
+`debugging_logs/hypothesis_experiments.py` ile çalıştırılabilir; çıktısı
+`debugging_logs/hypothesis_experiments_output.md`'de.
 
 | Hipotez | Gözlem | Deney | Sonuç | Kabul/Ret |
 |---|---|---|---|---|
-| H1 | | | | |
-| H2 | | | | |
-| H3 | | | | |
+| **H1** — Boolean bir alandaki JSON `null` (Python `None`) hatayı tetikler. | `large_config_failure.json`'da `features.debug` = `null`; traceback çöküşün tam bu alan `parse_bool` içinde işlenirken olduğunu gösterir. | Gerçek dosyayı olduğu gibi çalıştır (`debug: null`), sonra **sadece** `features.debug`'ı `false` yap (kontrol). | Olduğu gibi → crash (`AttributeError`); `false` ile → normalize. Tek değişen `debug` olduğundan tetikleyici `null`'dur. | **Kabul** |
+| **H2** — null'a özel değil: bool/string OLMAYAN **her** değer (int, list, float) aynı şekilde çökertir; `parse_bool` string varsayar. | `isinstance(value, bool)` kontrolünden sonra yalnızca string'lerin desteklediği `value.lower()` çağrılıyor. | Gerçek dosyada `features.debug`'ı sırayla `1` (int), `[]` (list), `1.5` (float) yap. | Üçü de `AttributeError: '<tip>' object has no attribute 'lower'` ile çöker. Neden "bool/string olmayan her değer"e genelleşir. | **Kabul** |
+| **H3** — Hata eksik bir zorunlu bölümden kaynaklanır (kötü bir değerden değil). | Dosyada birçok bölüm var; eksik biri makul bir alternatif neden olabilir. | Gerçek dosyadan `limits` bölümünü çıkar ve çalıştır. | Temiz bir `ConfigError: Missing required section: limits` — **kontrollü** ret, crash değil. Eksik bölüm doğru ele alınır; neden bu değil. | **Ret** |
+| **H4** — Hata, büyük / derin iç içe yapıdan (`services`, `security`, `metadata`, ...) kaynaklanır. | Hatalı dosya, küçük geçerli dosyaların aksine büyük ve iç içe; yapı makul bir alternatif neden olabilir. | Gerçek dosyada: (a) nested bölümleri çıkar ama `debug=null` kalsın; (b) nested kalsın ama `debug=false` yap. | (a) yine crash; (b) normalize. Parser bu nested bölümleri tamamen yok sayar; iç içe yapı değiştirmez — belirleyici olan `null`. | **Ret** |
+
+Sonuç: crash, `parse_bool`'un string olmayan bir değere `.lower()` çağırmasından doğuyor — H1 ile
+daraltıldı (`features.debug`'daki `null`), H2 ile genelleştirildi (bool/string olmayan her değer).
+Eksik bölümden (H3) ve büyük/iç içe yapıdan (H4) **bağımsız**.
 
 ---
 

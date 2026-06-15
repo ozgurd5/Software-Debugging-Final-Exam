@@ -119,11 +119,22 @@ patch (Section 10), as shown in Section 11.
 
 ## 5. Scientific Debugging
 
+Each hypothesis was tested with a **controlled experiment**: start from the real failing input
+`inputs/large_config_failure.json` and change exactly one thing, observing the outcome (normalizes
+OK / clean `ConfigError` / uncontrolled crash). The experiments are runnable in
+`debugging_logs/hypothesis_experiments.py`; their captured output is in
+`debugging_logs/hypothesis_experiments_output.md`.
+
 | Hypothesis | Observation | Experiment | Result | Accepted/Rejected |
 |---|---|---|---|---|
-| H1 | | | | |
-| H2 | | | | |
-| H3 | | | | |
+| **H1** — A JSON `null` (Python `None`) in a boolean field is what triggers the failure. | In `large_config_failure.json`, `features.debug` is `null`, and the traceback shows the crash happens exactly while that field is parsed, inside `parse_bool`. | Run the real file as-is (`debug: null`), then change **only** `features.debug` to `false` (control). | As-is → crash (`AttributeError`); with `false` → normalizes fine. Only `debug` changed, so the `null` value is the trigger. | **Accepted** |
+| **H2** — The cause is not specific to `null`: **any** non-bool, non-string value (int, list, float) crashes the same way, because `parse_bool` assumes a string. | Right after its `isinstance(value, bool)` check, `parse_bool` calls `value.lower()`, which only strings support. | On the real file, set `features.debug` to `1` (int), then `[]` (list), then `1.5` (float). | All three crash with `AttributeError: '<type>' object has no attribute 'lower'`. The cause generalises to any non-bool, non-string value. | **Accepted** |
+| **H3** — The failure is caused by a **missing** required section (rather than a bad value). | The file has several sections, so a missing one is a plausible alternative cause. | Remove the `limits` section from the real file and run. | A clean `ConfigError: Missing required section: limits` — a *controlled* rejection, not a crash. A missing section is handled correctly, so it is not the cause. | **Rejected** |
+| **H4** — The failure is caused by the large / deeply-nested structure (`services`, `security`, `metadata`, ...). | The failing file is big and nested, unlike the small valid files, so the structure is a plausible alternative cause. | From the real file: (a) remove the nested sections but keep `debug=null`; (b) keep the nested sections but set `debug=false`. | (a) still crashes; (b) normalizes fine. The parser ignores those nested sections entirely, so nesting changes nothing — only the `null` value matters. | **Rejected** |
+
+Conclusion: the crash is caused by `parse_bool` calling `.lower()` on a non-string value — narrowed by
+H1 (the `null` in `features.debug`) and generalised by H2 (any non-bool, non-string value). It is
+**independent** of missing sections (H3) and of the large/nested structure (H4).
 
 ---
 

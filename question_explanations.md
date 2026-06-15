@@ -194,3 +194,37 @@ sınavın verdiği **gerçek dosyada** gerçekleştiğini gösterir.
 ≥5 passing + ≥3 failing + tablo (test / input / beklenen / gerçek / sonuç). Kod
 `tests/test_config_cases.py`; tablolar `report.md` §4 ve `exam_answers.md` S3'te. (Hocanın
 `test_config_parser.py`'sine dokunmadık; kendi dosyamızı ekledik.)
+
+---
+
+## Soru 4 — Scientific Debugging (Bilimsel Hata Ayıklama)
+
+### 1. Nedir?
+Rastgele deneme yapmak yerine **bilimsel yöntemi** uygularız:
+1. **Hipotez:** Hatanın nedeni hakkında test edilebilir bir iddia ("Hata X yüzünden oluyor").
+2. **Deney:** İddiayı sınamak için **tek bir değişkeni** değiştirip programı çalıştır.
+3. **Gözlem:** Ne olduğunu kaydet (OK / temiz hata / crash).
+4. **Sonuç:** Gözlem hipotezi destekliyor mu? → **Kabul** ya da **Ret**.
+
+### 2. Kontrollü deney = tek değişken
+Güvenilir sonuç için her deneyde **yalnızca bir şeyi** değiştir, gerisini sabit tut. "null mı
+tetikliyor?" derken sadece `debug`'ı null↔false arasında değiştir, kalan her şey aynı kalsın; böylece
+sonucu **kesin olarak** o değişkene bağlayabilirsin.
+
+### 3. Ret de Kabul kadar değerlidir
+İyi hata ayıklama, yanlış nedenleri **elemeyi** de içerir. "Eksik alan mı?", "iç içe yapı mı?" gibi
+makul ama yanlış hipotezleri deneyle çürütmek (Ret), gerçek nedeni daraltır.
+
+### 4. Tümevarım: tekil gözlemden genel nedene
+Tek bir vakadan ("debug=null çöküyor") genel bir kurala ("string olmayan HER değer çöküyor") deneyle
+geçilir (int/list/float deneyerek). Bu, kök nedeni (parse_bool'un `.lower()` varsayımı) açığa çıkarır.
+
+### 5. Bizim 4 hipotezimiz (özet)
+- **H1 (Kabul):** null tetikler (debug=null → crash; debug=false → OK).
+- **H2 (Kabul):** null'a özel değil; int/list/float de tetikler — kök neden parse_bool'un string varsayması.
+- **H3 (Ret):** eksik alan crash'e yol açmaz; temiz `ConfigError` verir.
+- **H4 (Ret):** iç içe/büyük yapı tetikleyici değil; parser onları yok sayar — belirleyici olan null.
+
+Doldurulmuş tablo `report.md` §5 ve `exam_answers.md` S4'te. Çalıştırılabilir deney kanıtı:
+`debugging_logs/hypothesis_experiments.py` (gerçek `large_config_failure.json`'dan türetilmiş, her
+deney `# Hn` ile etiketli) ve çıktısı `debugging_logs/hypothesis_experiments_output.md`.
