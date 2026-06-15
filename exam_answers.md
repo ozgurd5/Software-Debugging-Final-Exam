@@ -79,15 +79,25 @@ patch'inden sonra yeşile döner.
 Her hipotez **kontrollü bir deneyle** sınandı: gerçek failing input
 `inputs/large_config_failure.json`'dan başlayıp **tek bir şeyi** değiştirerek sonucu gözledik
 (sorunsuz normalize / temiz `ConfigError` / kontrolsüz crash). Deneyler
-`debugging_logs/hypothesis_experiments.py` ile çalıştırılabilir; çıktısı
-`debugging_logs/hypothesis_experiments_output.md`'de.
+`debugging_logs/hypothesis_experiments.py` ile çalıştırılabilir. Çalıştırma çıktısı:
+
+```text
+H1  real file as-is (debug=null)             -> CRASH: AttributeError
+H1  real file, debug=false (control)         -> OK (normalized)
+H2  real file, debug=int 1                   -> CRASH: AttributeError
+H2  real file, debug=list []                 -> CRASH: AttributeError
+H2  real file, debug=float 1.5               -> CRASH: AttributeError
+H3  real file minus 'limits'                 -> ConfigError (controlled)
+H4  real file, nested removed (debug=null)   -> CRASH: AttributeError
+H4  real file, nested kept, debug=false      -> OK (normalized)
+```
 
 | Hipotez | Gözlem | Deney | Sonuç | Kabul/Ret |
 |---|---|---|---|---|
-| **H1** — Boolean bir alandaki JSON `null` (Python `None`) hatayı tetikler. | `large_config_failure.json`'da `features.debug` = `null`; traceback çöküşün tam bu alan `parse_bool` içinde işlenirken olduğunu gösterir. | Gerçek dosyayı olduğu gibi çalıştır (`debug: null`), sonra **sadece** `features.debug`'ı `false` yap (kontrol). | Olduğu gibi → crash (`AttributeError`); `false` ile → normalize. Tek değişen `debug` olduğundan tetikleyici `null`'dur. | **Kabul** |
-| **H2** — null'a özel değil: bool/string OLMAYAN **her** değer (int, list, float) aynı şekilde çökertir; `parse_bool` string varsayar. | `isinstance(value, bool)` kontrolünden sonra yalnızca string'lerin desteklediği `value.lower()` çağrılıyor. | Gerçek dosyada `features.debug`'ı sırayla `1` (int), `[]` (list), `1.5` (float) yap. | Üçü de `AttributeError: '<tip>' object has no attribute 'lower'` ile çöker. Neden "bool/string olmayan her değer"e genelleşir. | **Kabul** |
-| **H3** — Hata eksik bir zorunlu bölümden kaynaklanır (kötü bir değerden değil). | Dosyada birçok bölüm var; eksik biri makul bir alternatif neden olabilir. | Gerçek dosyadan `limits` bölümünü çıkar ve çalıştır. | Temiz bir `ConfigError: Missing required section: limits` — **kontrollü** ret, crash değil. Eksik bölüm doğru ele alınır; neden bu değil. | **Ret** |
-| **H4** — Hata, büyük / derin iç içe yapıdan (`services`, `security`, `metadata`, ...) kaynaklanır. | Hatalı dosya, küçük geçerli dosyaların aksine büyük ve iç içe; yapı makul bir alternatif neden olabilir. | Gerçek dosyada: (a) nested bölümleri çıkar ama `debug=null` kalsın; (b) nested kalsın ama `debug=false` yap. | (a) yine crash; (b) normalize. Parser bu nested bölümleri tamamen yok sayar; iç içe yapı değiştirmez — belirleyici olan `null`. | **Ret** |
+| **H1** — Boolean bir alandaki JSON `null` (Python `None`) hatayı tetikler. | Crash, yalnızca string'lerde olan `.lower()`'dan gelen bir `AttributeError`; hatalı dosyada değeri string-karşılığı olmayan tek alan `features.debug` = `null`, diğer tüm değerler normal string/int/bool. Bu, `null`'u baş şüpheli yapar. | Dosyayı olduğu gibi çalıştır (`debug: null`); sonra **yalnızca** `features.debug`'ı `false` yapıp tekrar çalıştır. | Olduğu gibi → kontrolsüz `AttributeError` (crash); `false` ile → normalize, çıkış 0. Tek alan crash↔başarıyı çeviriyor; tetikleyici `null`. | **Kabul** |
+| **H2** — Tetikleyici null'a özel değil: bool/string **olmayan her** değer (int, list, float) aynı şekilde çökertir. | `parse_bool` yalnız `bool`'u özel-durum yapıp koşulsuz `value.lower()` çağırır — hiçbir yeri `null`'a özel değil; `null` sadece string değil, int/float/list de değil. | Gerçek dosyada `features.debug`'ı sırayla `1` (int), `[]` (list), `1.5` (float) yap. | Üçü de aynı: `AttributeError: '<tip>' object has no attribute 'lower'`. Tetikleyici, yalnız `null` değil, bool/string olmayan herhangi bir değer. | **Kabul** |
+| **H3** — Hata, kötü bir değerden değil, **eksik** bir zorunlu bölümden kaynaklanır. | Tek bir failing input var ve geçerli dosyalardan aynı anda birçok yönden farklı; "zorunlu bölüm eksik" rakip açıklaması, değeri suçlamadan önce elenmeli. | Gerçek dosyadan `limits` bölümünü tümüyle çıkar ve çalıştır. | Temiz `ConfigError: Missing required section: limits` (çıkış 1, traceback yok) — kontrollü ret, crash değil. Eksik bölüm doğru ele alınıyor; neden bu değil. | **Ret** |
+| **H4** — Hata, büyük / derin iç içe yapıdan (`services`, `security`, `metadata`, ...) kaynaklanır. | Hatalı dosya ~60 satır ve derin iç içe; geçerli dosyalar küçük ve düz — değeri suçlamadan önce kontrol edilmesi gereken bir boyut/yuvalama confound'u. | İki çalıştırma: (a) nested bölümleri çıkar ama `debug: null` kalsın; (b) nested kalsın ama `debug: false` yap. | (a) yine crash; (b) sorunsuz normalize. Sonuç `debug` değerini izliyor, yapıyı değil — parser o bölümlere hiç bakmıyor bile. | **Ret** |
 
 Sonuç: crash, `parse_bool`'un string olmayan bir değere `.lower()` çağırmasından doğuyor — H1 ile
 daraltıldı (`features.debug`'daki `null`), H2 ile genelleştirildi (bool/string olmayan her değer).
@@ -98,37 +108,36 @@ Eksik bölümden (H3) ve büyük/iç içe yapıdan (H4) **bağımsız**.
 ## Soru 5 — Delta Debugging / Input Minimization
 1. **Başlangıç input büyüklüğü:** `large_config_failure.json` ≈61 satır, 7 üst bölüm (metadata,
    server, features, limits, logging, services, security); features'ta 5 anahtar.
-2. **Küçültme adımları:** **Sistematik greedy minimizer** (`debugging_logs/delta_debugging.py`),
-   config'in **her elemanını** (her derinlikteki her anahtar) tek tek silmeyi dener; failure
-   (`is_failure`) korunuyorsa silmeyi tutar, fixpoint'e kadar tekrarlar. Tam iz
-   `debugging_logs/delta_debugging_output.md`'de. **Faz 1 — her adımda tek eleman:**
+2. **Küçültme — tek annotasyonlu geçiş:** **Greedy minimizer** (`debugging_logs/delta_debugging.py`,
+   orijinal bozuk parser üzerinde) her elemanı tek tek siler: crash sürerse silmeyi tutar
+   (**REMOVED** — alakasız), sürmezse elemanı yerinde bırakır (**ESSENTIAL** — silince sonuç değişir).
+   Karar S2 oracle'ı (`is_failure`) ile. Aşağıdaki tablo **tam izdir**; ESSENTIAL satırlar indirgenemez
+   çekirdektir → sonuç 1-minimal (birini daha çıkarınca crash kaybolur).
 
-| Adım | Çıkarılan | Failure devam etti mi? | Sonuç |
+| # | Silinen | Sonuç | Karar |
 |---|---|---|---|
-| 1 | `metadata` | Evet | alakasız → çıkarıldı |
-| 2 | `server.host` | Evet | alakasız → çıkarıldı |
-| 3 | `server.port` | Evet | `server` artık `{}` → çıkarıldı |
-| 4 | `features.cache` | Evet | tetikleyici değil → çıkarıldı |
-| 5 | `features.experimental` | Evet | tetikleyici değil → çıkarıldı |
-| 6 | `features.recommendations` | Evet | kullanılmıyor → çıkarıldı |
-| 7 | `features.new_checkout` | Evet | kullanılmıyor → çıkarıldı |
-| 8 | `limits.max_users` | Evet | alakasız → çıkarıldı |
-| 9 | `limits.timeout` | Evet | alakasız → çıkarıldı |
-| 10 | `limits.retries` | Evet | `limits` artık `{}` → çıkarıldı |
-| 11 | `logging` | Evet | alakasız → çıkarıldı |
-| 12 | `services` | Evet | alakasız → çıkarıldı |
-| 13 | `security` | Evet | alakasız → çıkarıldı |
+| 1 | `metadata` | hâlâ çöküyor | REMOVED |
+| 2 | `server` | temiz `ConfigError` | **ESSENTIAL** (tutuldu) |
+| 3 | `server.host` | hâlâ çöküyor | REMOVED |
+| 4 | `server.port` | hâlâ çöküyor | REMOVED |
+| 5 | `features` | temiz `ConfigError` | **ESSENTIAL** (tutuldu) |
+| 6 | `features.cache` | hâlâ çöküyor | REMOVED |
+| 7 | `features.debug` | sorunsuz normalize | **ESSENTIAL** (tetikleyici) |
+| 8 | `features.experimental` | hâlâ çöküyor | REMOVED |
+| 9 | `features.recommendations` | hâlâ çöküyor | REMOVED |
+| 10 | `features.new_checkout` | hâlâ çöküyor | REMOVED |
+| 11 | `limits` | temiz `ConfigError` | **ESSENTIAL** (tutuldu) |
+| 12 | `limits.max_users` | hâlâ çöküyor | REMOVED |
+| 13 | `limits.timeout` | hâlâ çöküyor | REMOVED |
+| 14 | `limits.retries` | hâlâ çöküyor | REMOVED |
+| 15 | `logging` | hâlâ çöküyor | REMOVED |
+| 16 | `services` | hâlâ çöküyor | REMOVED |
+| 17 | `security` | hâlâ çöküyor | REMOVED |
 
-3. **Çıkarınca failure DEVAM eden parçalar (alakasız → çıkarıldı):** yukarıdaki 13 eleman.
-4. **Çıkarınca failure KAYBOLAN parçalar (kritik → tutuldu) — Faz 2 (1-minimallik kontrolü):** kalan
-   her eleman tek tek çıkarıldı; hepsinde failure kayboluyor, yani hiçbiri daha fazla küçültülemez:
-
-| Çıkarılan | Failure devam etti mi? | Sonuç |
-|---|---|---|
-| `server` | Hayır (temiz `ConfigError`) | zorunlu bölüm → tutuldu |
-| `features` | Hayır (temiz `ConfigError`) | zorunlu bölüm → tutuldu |
-| `features.debug` | Hayır (sorunsuz normalize) | **tetikleyici** (null) → tutuldu |
-| `limits` | Hayır (temiz `ConfigError`) | zorunlu bölüm → tutuldu |
+3. **Çıkarınca failure DEVAM eden (REMOVED → alakasız):** 13 eleman (yukarıdaki REMOVED satırları).
+4. **Çıkarınca failure KAYBOLAN (ESSENTIAL → tutuldu):** 4 eleman — `server`/`features`/`limits`
+   (silince temiz `ConfigError` → zorunlu bölüm) ve `features.debug` (silince `null` gider, program
+   normalize olur → tetikleyici). Her biri çıkarılınca sonuç değişir → **1-minimal**.
 5. **Minimum failure-inducing input** (1-minimal — bir eleman daha çıkarılırsa failure kaybolur):
    ```json
    {"server": {}, "features": {"debug": null}, "limits": {}}
@@ -144,10 +153,13 @@ Eksik bölümden (H3) ve büyük/iç içe yapıdan (H4) **bağımsız**.
 Trace, `debugging_logs/trace_run.py` ile üretildi: parser fonksiyonları çalışma anında **sarılarak**
 (hocanın kodu değiştirilmeden) her bölüm/alan işlenirken loglandı ve çöküş anı yakalandı. Tam çıktı:
 `debugging_logs/trace_output.md`.
-- **İşlenen ana bölümler:** `server` başarıyla normalize edildi, sonra `features` başladı; `limits` ve
-  `logging`'e **hiç ulaşılmadı** — çöküş `features` içinde.
-- **Normalize edilen alanlar:** `features` içinde her boolean bayrak için `parse_bool` çağrıldı:
-  `cache=True` (bool, sorunsuz), sonra `debug=None`.
+- **İşlenen ana bölümler:** `normalize_config` sırasıyla `server`, `features`, `limits`, `logging`'i
+  işler; `metadata`, `services`, `security` **yok sayılır** (hiç okunmaz). Burada `server` başarıyla
+  normalize edildi, `features` başladı; çöküş `features` içinde olduğundan `limits` ve `logging`'e
+  **hiç ulaşılmadı**.
+- **Normalize edilen alanlar:** `features`'tan önce `normalize_server`, `server.host` ve `server.port`'u
+  okuyup doğrular (ikisi de geçerli). Sonra `features` içinde her boolean bayrak için `parse_bool`
+  çağrıldı: `cache=True` (sorunsuz), sonra `debug=None`.
 - **Beklenen tipte olmayan değer:** `debug=None` (JSON `null`) → `NoneType`; ne `bool` ne `str`, yani
   `parse_bool`'un string varsayımı tutmuyor.
 - **Çöküşten hemen önceki fonksiyon çağrısı + değişken değerleri:** son çağrı `parse_bool(value=None)`;

@@ -1,13 +1,11 @@
 """
 Delta debugging / input minimization (Question 5) -- evidence.
 
-A systematic greedy minimizer.
-  Phase 1: repeatedly try to delete each element (every key, at any depth) of the parsed config and
-           keep a deletion only when the failure (the crash) still occurs; repeat until no single
-           deletion preserves the failure.
-  Phase 2: confirm the result is "1-minimal" -- deleting ANY one remaining element makes the failure
-           disappear, so nothing more can be removed.
-Pass/fail is decided by the Question 2 oracle. Re-run from the project root with:
+A single annotated greedy pass over every element (each key, at any depth) of the parsed config:
+delete the element and keep the deletion if the crash still occurs (REMOVED -- the element is
+irrelevant); otherwise leave it in place (ESSENTIAL -- removing it changes the outcome). What remains
+is the minimal failure-inducing input, and the ESSENTIAL rows are exactly its irreducible core.
+The crash / no-crash decision is the Question 2 oracle. Re-run from the project root with:
     py debugging_logs/delta_debugging.py
 """
 import copy
@@ -18,11 +16,12 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
+from src.config_parser import ConfigError, normalize_config
 from tests.oracle import is_failure
 
 
 def removable_paths(node, prefix=()):
-    """Return the key-path of every key in every nested dict (parents before children)."""
+    """Key-path of every key in every nested dict (parents before children)."""
     paths = []
     if isinstance(node, dict):
         for key in node:
@@ -32,8 +31,18 @@ def removable_paths(node, prefix=()):
     return paths
 
 
+def contains(config, path):
+    """True if `path` still exists (its parent was not already removed earlier in the pass)."""
+    node = config
+    for key in path:
+        if not isinstance(node, dict) or key not in node:
+            return False
+        node = node[key]
+    return True
+
+
 def without(config, path):
-    """Return a deep copy of config with the element at key-path `path` deleted."""
+    """Deep copy of config with the element at `path` deleted."""
     trial = copy.deepcopy(config)
     parent = trial
     for key in path[:-1]:
@@ -42,46 +51,39 @@ def without(config, path):
     return trial
 
 
-def outcome(config):
-    """'failure' if the crash still occurs, otherwise 'no failure'."""
-    return "failure" if is_failure(config) else "no failure"
+def describe(config):
+    """Why an essential deletion is rejected: a controlled error or a clean normalization."""
+    try:
+        normalize_config(config)
+        return "normalizes OK"
+    except ConfigError:
+        return "clean ConfigError"
+    except Exception as exc:
+        return f"CRASH ({type(exc).__name__})"
 
 
 def minimize(config):
-    """Delete any element whose removal keeps the failure; repeat until none can be removed."""
-    step = 0
-    changed = True
-    while changed:
-        changed = False
-        for path in removable_paths(config):
-            trial = without(config, path)
-            if is_failure(trial):
-                config = trial
-                step += 1
-                print(f"  step {step:2}: remove {'.'.join(path):26} -> failure remains  (KEEP)")
-                changed = True
-                break
+    """One annotated pass: delete each element, keeping the deletion only if the crash survives."""
+    for path in removable_paths(config):
+        if not contains(config, path):
+            continue
+        trial = without(config, path)
+        name = ".".join(path)
+        if is_failure(trial):
+            config = trial
+            print(f"  delete {name:25} -> {'still crashes':17} -> REMOVED")
+        else:
+            print(f"  delete {name:25} -> {describe(trial):17} -> ESSENTIAL")
     return config
 
 
-def confirm_minimal(config):
-    """Show 1-minimality: removing any single remaining element makes the failure disappear."""
-    for path in removable_paths(config):
-        print(f"  remove {'.'.join(path):16} -> {outcome(without(config, path)):11} -> essential, kept")
-
-
 def main():
-    original = json.loads((ROOT / "inputs" / "large_config_failure.json").read_text(encoding="utf-8"))
-    print("original ->", outcome(original))
-
-    print("\nPhase 1 -- greedy reduction (one element per step):")
-    minimal = minimize(original)
-
+    config = json.loads((ROOT / "inputs" / "large_config_failure.json").read_text(encoding="utf-8"))
+    print("original ->", "failure" if is_failure(config) else "no failure")
+    print("\nGreedy pass -- delete each element; keep the deletion only if the crash survives:")
+    minimal = minimize(config)
     print("\nminimal failure-inducing input:")
     print(json.dumps(minimal, indent=2))
-
-    print("\nPhase 2 -- 1-minimality check (each remaining element is essential):")
-    confirm_minimal(minimal)
 
 
 if __name__ == "__main__":

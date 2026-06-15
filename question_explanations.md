@@ -238,40 +238,39 @@ Büyük, hatayı tetikleyen bir girdiyi alıp **sistematik küçültüp**, hatay
 parçayı** bulma yöntemi. "Bu kocaman dosyanın HANGİ parçası hatayı yapıyor?" sorusunu, gereksiz her
 şeyi atarak cevaplar.
 
-### 2. Temel döngü: çıkar → test et → karar ver
-1. Bir parçayı **çıkar**.
-2. Oracle ile **test et**: hata hâlâ var mı?
-3. **Hâlâ varsa** → parça gereksizmiş, **çıkarılmış bırak**; **kaybolduysa** → parça gerekliymiş,
-   **geri al**.
-Tüm parçalar için tekrarla; artık hiçbir parça çıkarılamıyorsa dur.
+### 2. Temel döngü: her elemanı dene → karar ver
+Her parçayı sırayla **silmeyi dene**, oracle ile **test et**:
+- Crash **hâlâ sürüyorsa** → parça gereksiz, **silinmiş bırak** (REMOVED).
+- Crash **kayboluyor/değişiyorsa** → parça gerekli, **yerinde bırak** (ESSENTIAL).
+Tek geçişte tüm elemanları gez; kalan = minimum (ESSENTIAL'lar), silinenler = gürültü.
 
 ### 3. "Minimal" / "1-minimal" ne demek?
 - **Minimal input:** hatayı hâlâ tetikleyen, daha fazla küçültülemeyen girdi.
 - **1-minimal:** Daha kesin tanım — **kalan herhangi tek bir elemanı** çıkardığında hata **kaybolur**
-  (ya da değişir). Yani tek hamlede daha fazla küçültülemez. Bu, mutlak en küçük (global optimum)
-  olduğunu garanti etmez; ama pratikte yeterince küçüktür ve **kanıtlanabilir**: kalan her elemanı tek
-  tek çıkarıp hatanın kaybolduğunu göstererek (bizim Faz 2).
+  (ya da değişir). Yani tek hamlede daha fazla küçültülemez. Tek geçişte **ESSENTIAL** işaretlenen her
+  eleman tam da bunu gösterir (çıkarılınca crash gider/değişir) → kalan çekirdek 1-minimaldir. Bu,
+  mutlak en küçüğü (global optimum) garanti etmez ama pratikte yeterince küçüktür.
 
 ### 4. Algoritmamız (prosedürel)
-`debugging_logs/delta_debugging.py` üç parçadan oluşur:
+`debugging_logs/delta_debugging.py`:
 - `removable_paths(cfg)` — config'teki **her anahtarın yolunu** (her derinlikte) listeler.
 - `without(cfg, path)` — o yoldaki elemanı silinmiş bir **kopya** döndürür (orijinali bozmaz).
-- `minimize(cfg)` — **Faz 1:** her yolu dener; `without` sonrası hâlâ failure ise silmeyi tutar ve
-  baştan tarar; hiçbir silme failure'ı korumuyorsa durur (fixpoint).
-- **Faz 2:** kalan her elemanı tek tek çıkarıp hatanın kaybolduğunu göstererek **1-minimal** olduğunu kanıtlar.
-Karar her adımda oracle (`is_failure`) ile verilir.
+- `describe(cfg)` — bir silmenin sonucunu adlandırır: `still crashes` / `clean ConfigError` / `normalizes OK`.
+- `minimize(cfg)` — **tek annotasyonlu geçiş:** her yolu sırayla dener; `without` sonrası hâlâ crash ise
+  silmeyi tutar (**REMOVED**), değilse elemanı yerinde bırakır (**ESSENTIAL**). Geçiş bitince kalan = minimum.
+Karar her adımda oracle (`is_failure`) ile verilir; `describe` yalnızca çıktıyı açıklar.
 
 ### 5. Neden oracle şart?
 Onlarca küçültme denemesini elle "hâlâ patlıyor mu?" diye kontrol etmek yorucu ve hataya açık.
 Oracle (`is_failure`, S2) bu kararı **otomatik** verir — delta debugging'in motorudur.
 
 ### 6. Bizim sonucumuz
-`large_config_failure.json` (≈61 satır) → Faz 1'de **13 eleman** çıkarıldı (metadata; server/limits
-içerikleri; features'ın ekstra ve tetikleyici-olmayan anahtarları; logging; services; security).
-Faz 2: kalan 4 eleman (`server`, `features`, `features.debug`, `limits`) — her biri çıkarılınca failure
-kaybolur → **1-minimal**. Minimum: `{"server": {}, "features": {"debug": null}, "limits": {}}`.
-Çalıştırılabilir kanıt: `debugging_logs/delta_debugging.py` (+ `_output.md`); tablo report.md §6 /
-exam_answers.md S5.
+`large_config_failure.json` (≈61 satır) → tek geçişte **13 eleman REMOVED** (metadata; server/limits
+içerikleri; features'ın diğer anahtarları; logging; services; security) ve **4 eleman ESSENTIAL**:
+`server`, `features`, `limits` (silince temiz `ConfigError`) ve `features.debug` (silince normalize —
+tetikleyici). ESSENTIAL çekirdek hem minimum hem 1-minimal:
+`{"server": {}, "features": {"debug": null}, "limits": {}}`. Çalıştırılabilir kanıt:
+`debugging_logs/delta_debugging.py` (+ `_output.md`); tablo report.md §6 / exam_answers.md S5.
 
 ---
 
@@ -314,8 +313,11 @@ Fikir: parser fonksiyonlarını, **log basıp sonra orijinali çağıran** ince 
    yalnızca server + features + parse_bool sarıldı (gereksiz kod yok, Kural 15).
 
 ### 4. Ne gözlemledik (sınavın istediği 4 şey)?
-- **Hangi bölümler işlendi:** server → features; limits/logging'e ulaşılmadı (çöküş features'ta).
-- **Hangi alanlar normalize edildi:** cache, debug → `parse_bool` ile.
+- **Hangi bölümler işlendi:** `normalize_config` yalnız server/features/limits/logging'i işler;
+  metadata/services/security **yok sayılır** (hiç okunmaz). Bu çalıştırmada server → features; çöküş
+  features'ta olduğundan limits/logging'e ulaşılmadı.
+- **Hangi alanlar normalize edildi:** önce `normalize_server` server.host/server.port'u doğrular; sonra
+  features'ta cache, debug → `parse_bool` ile.
 - **Hangi değer beklenen tipte değil:** `debug=None` → `NoneType` (bool/str değil).
 - **Çöküş öncesi durum:** `parse_bool`, `value=None`, `config_parser.py:150` (`value.lower()`).
 

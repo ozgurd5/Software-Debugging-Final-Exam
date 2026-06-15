@@ -1,27 +1,31 @@
 # Delta Debugging — Minimization Output (Question 5)
 
-Produced by running `py debugging_logs/delta_debugging.py` from the project root. The script is a
-systematic greedy minimizer: **Phase 1** deletes every element it can while the crash remains;
-**Phase 2** checks the result is *1-minimal* (removing any single remaining element makes the failure
-disappear). Pass/fail is decided by the Question 2 oracle.
+Produced by running `py debugging_logs/delta_debugging.py` from the project root, on the **original
+(buggy) parser** (the crash is present). One annotated greedy pass tries to delete every element: keep
+the deletion if the crash survives (REMOVED — the element is irrelevant), otherwise leave it in place
+(ESSENTIAL — removing it changes the outcome). The crash / no-crash decision is the Question 2 oracle.
 
 ```text
 original -> failure
 
-Phase 1 -- greedy reduction (one element per step):
-  step  1: remove metadata                   -> failure remains  (KEEP)
-  step  2: remove server.host                -> failure remains  (KEEP)
-  step  3: remove server.port                -> failure remains  (KEEP)
-  step  4: remove features.cache             -> failure remains  (KEEP)
-  step  5: remove features.experimental      -> failure remains  (KEEP)
-  step  6: remove features.recommendations   -> failure remains  (KEEP)
-  step  7: remove features.new_checkout      -> failure remains  (KEEP)
-  step  8: remove limits.max_users           -> failure remains  (KEEP)
-  step  9: remove limits.timeout             -> failure remains  (KEEP)
-  step 10: remove limits.retries             -> failure remains  (KEEP)
-  step 11: remove logging                    -> failure remains  (KEEP)
-  step 12: remove services                   -> failure remains  (KEEP)
-  step 13: remove security                   -> failure remains  (KEEP)
+Greedy pass -- delete each element; keep the deletion only if the crash survives:
+  delete metadata                  -> still crashes     -> REMOVED
+  delete server                    -> clean ConfigError -> ESSENTIAL
+  delete server.host               -> still crashes     -> REMOVED
+  delete server.port               -> still crashes     -> REMOVED
+  delete features                  -> clean ConfigError -> ESSENTIAL
+  delete features.cache            -> still crashes     -> REMOVED
+  delete features.debug            -> normalizes OK     -> ESSENTIAL
+  delete features.experimental     -> still crashes     -> REMOVED
+  delete features.recommendations  -> still crashes     -> REMOVED
+  delete features.new_checkout     -> still crashes     -> REMOVED
+  delete limits                    -> clean ConfigError -> ESSENTIAL
+  delete limits.max_users          -> still crashes     -> REMOVED
+  delete limits.timeout            -> still crashes     -> REMOVED
+  delete limits.retries            -> still crashes     -> REMOVED
+  delete logging                   -> still crashes     -> REMOVED
+  delete services                  -> still crashes     -> REMOVED
+  delete security                  -> still crashes     -> REMOVED
 
 minimal failure-inducing input:
 {
@@ -31,16 +35,10 @@ minimal failure-inducing input:
   },
   "limits": {}
 }
-
-Phase 2 -- 1-minimality check (each remaining element is essential):
-  remove server           -> no failure  -> essential, kept
-  remove features         -> no failure  -> essential, kept
-  remove features.debug   -> no failure  -> essential, kept
-  remove limits           -> no failure  -> essential, kept
 ```
 
-Phase 1 removed 13 elements; all are irrelevant to the crash. Phase 2 shows the four remaining
-elements are each essential: removing a required section (`server` / `features` / `limits`) yields a
-clean `ConfigError`, and removing `features.debug` leaves no `null` so the program normalizes — both
-are *different outcomes*, not the crash. Minimal failure-inducing input:
+13 elements are REMOVED (irrelevant to the crash); 4 are ESSENTIAL — the required sections `server`,
+`features`, `limits` (deleting any one yields a clean `ConfigError`, a different outcome) and
+`features.debug` (deleting the `null` lets the program normalize). The ESSENTIAL rows are the
+irreducible core: the minimal failure-inducing input is
 `{"server": {}, "features": {"debug": null}, "limits": {}}`.

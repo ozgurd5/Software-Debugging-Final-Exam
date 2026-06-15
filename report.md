@@ -122,15 +122,25 @@ patch (Section 10), as shown in Section 11.
 Each hypothesis was tested with a **controlled experiment**: start from the real failing input
 `inputs/large_config_failure.json` and change exactly one thing, observing the outcome (normalizes
 OK / clean `ConfigError` / uncontrolled crash). The experiments are runnable in
-`debugging_logs/hypothesis_experiments.py`; their captured output is in
-`debugging_logs/hypothesis_experiments_output.md`.
+`debugging_logs/hypothesis_experiments.py`; their captured output:
+
+```text
+H1  real file as-is (debug=null)             -> CRASH: AttributeError
+H1  real file, debug=false (control)         -> OK (normalized)
+H2  real file, debug=int 1                   -> CRASH: AttributeError
+H2  real file, debug=list []                 -> CRASH: AttributeError
+H2  real file, debug=float 1.5               -> CRASH: AttributeError
+H3  real file minus 'limits'                 -> ConfigError (controlled)
+H4  real file, nested removed (debug=null)   -> CRASH: AttributeError
+H4  real file, nested kept, debug=false      -> OK (normalized)
+```
 
 | Hypothesis | Observation | Experiment | Result | Accepted/Rejected |
 |---|---|---|---|---|
-| **H1** — A JSON `null` (Python `None`) in a boolean field is what triggers the failure. | In `large_config_failure.json`, `features.debug` is `null`, and the traceback shows the crash happens exactly while that field is parsed, inside `parse_bool`. | Run the real file as-is (`debug: null`), then change **only** `features.debug` to `false` (control). | As-is → crash (`AttributeError`); with `false` → normalizes fine. Only `debug` changed, so the `null` value is the trigger. | **Accepted** |
-| **H2** — The cause is not specific to `null`: **any** non-bool, non-string value (int, list, float) crashes the same way, because `parse_bool` assumes a string. | Right after its `isinstance(value, bool)` check, `parse_bool` calls `value.lower()`, which only strings support. | On the real file, set `features.debug` to `1` (int), then `[]` (list), then `1.5` (float). | All three crash with `AttributeError: '<type>' object has no attribute 'lower'`. The cause generalises to any non-bool, non-string value. | **Accepted** |
-| **H3** — The failure is caused by a **missing** required section (rather than a bad value). | The file has several sections, so a missing one is a plausible alternative cause. | Remove the `limits` section from the real file and run. | A clean `ConfigError: Missing required section: limits` — a *controlled* rejection, not a crash. A missing section is handled correctly, so it is not the cause. | **Rejected** |
-| **H4** — The failure is caused by the large / deeply-nested structure (`services`, `security`, `metadata`, ...). | The failing file is big and nested, unlike the small valid files, so the structure is a plausible alternative cause. | From the real file: (a) remove the nested sections but keep `debug=null`; (b) keep the nested sections but set `debug=false`. | (a) still crashes; (b) normalizes fine. The parser ignores those nested sections entirely, so nesting changes nothing — only the `null` value matters. | **Rejected** |
+| **H1** — A JSON `null` (Python `None`) in a boolean field triggers the failure. | The crash is an `AttributeError` from `.lower()`, a method only strings have; in the failing file `features.debug` is the one field whose value (`null`) has no string form, while every other value is a normal string/int/bool. That singles out the `null`. | Run the file as-is (`debug: null`); then run it again changing **only** `features.debug` to `false`. | As-is → uncaught `AttributeError` (crash); with `false` → normalizes and exits 0. One field flips crash↔success, so the `null` value is the trigger. | **Accepted** |
+| **H2** — The trigger is not `null`-specific: **any** non-bool, non-string value (int, list, float) crashes the same way. | `parse_bool` special-cases only `bool`, then calls `value.lower()` unconditionally — nothing there is specific to `null`; it is simply not a string, and neither are ints, floats or lists. | On the real file set `features.debug` to `1` (int), then `[]` (list), then `1.5` (float) — one type per run. | All three crash identically: `AttributeError: '<type>' object has no attribute 'lower'`. The trigger is any non-bool, non-string value, not `null` alone. | **Accepted** |
+| **H3** — The failure is caused by a **missing** required section, not by a bad value. | There is only one failing input and it differs from the passing files in many ways at once; the rival "a required section is missing" must be eliminated before crediting the value. | Remove the entire `limits` section from the real file and run. | A clean `ConfigError: Missing required section: limits` (exit 1, no traceback) — a controlled rejection, not a crash. A missing section is handled correctly, so it is not the cause. | **Rejected** |
+| **H4** — The failure is caused by the large / deeply-nested structure (`services`, `security`, `metadata`, ...). | The failing file is ~60 lines and deeply nested while the passing files are small and flat — a size/nesting confound that must be controlled for before blaming the value. | Two runs: (a) strip the nested sections but keep `debug: null`; (b) keep all nesting but set `debug: false`. | (a) still crashes; (b) normalizes cleanly. The outcome tracks the `debug` value, not the structure — the parser never even inspects those sections. | **Rejected** |
 
 Conclusion: the crash is caused by `parse_bool` calling `.lower()` on a non-string value — narrowed by
 H1 (the `null` in `features.debug`) and generalised by H2 (any non-bool, non-string value). It is
@@ -147,37 +157,32 @@ H1 (the `null` in `features.debug`) and generalised by H2 (any non-bool, non-str
 
 ### Reduction steps
 
-A **systematic greedy minimizer** (`debugging_logs/delta_debugging.py`) automatically visits every
-element (each key, at any depth) and deletes it only if the crash still occurs (decided by
-`tests/oracle.is_failure`), repeating until nothing more can be removed. Full trace:
-`debugging_logs/delta_debugging_output.md`. **Phase 1** — each deletion, one element per step:
+A **single annotated greedy pass** (`debugging_logs/delta_debugging.py`, run on the original buggy
+parser) deletes each element — every key, at any depth — in turn: keep the deletion if the crash still
+occurs (**REMOVED**, the element is irrelevant), otherwise leave the element in place (**ESSENTIAL**,
+removing it changes the outcome). The crash / no-crash decision is the Question 2 oracle
+(`tests/oracle.is_failure`). The table below **is** the full trace; the ESSENTIAL rows are the
+irreducible core, so the result is 1-minimal — deleting any one of them makes the crash disappear.
 
-| Step | Change attempted | Failure remained? | Conclusion |
+| # | Delete | Outcome | Decision |
 |---|---|---|---|
-| 1 | remove `metadata` | Yes | irrelevant → removed |
-| 2 | remove `server.host` | Yes | irrelevant → removed |
-| 3 | remove `server.port` | Yes | `server` now `{}` → removed |
-| 4 | remove `features.cache` | Yes | not the trigger → removed |
-| 5 | remove `features.experimental` | Yes | not the trigger → removed |
-| 6 | remove `features.recommendations` | Yes | unused key → removed |
-| 7 | remove `features.new_checkout` | Yes | unused key → removed |
-| 8 | remove `limits.max_users` | Yes | irrelevant → removed |
-| 9 | remove `limits.timeout` | Yes | irrelevant → removed |
-| 10 | remove `limits.retries` | Yes | `limits` now `{}` → removed |
-| 11 | remove `logging` | Yes | irrelevant → removed |
-| 12 | remove `services` | Yes | irrelevant → removed |
-| 13 | remove `security` | Yes | irrelevant → removed |
-
-**Phase 2 — 1-minimality check.** A failure-inducing input is **1-minimal** when removing *any* single
-remaining element makes the failure disappear (so it cannot be shrunk any further). Each remaining
-element was deleted in turn:
-
-| Change attempted | Failure remained? | Conclusion |
-|---|---|---|
-| remove `server` | No (clean `ConfigError`) | required section → kept |
-| remove `features` | No (clean `ConfigError`) | required section → kept |
-| remove `features.debug` | No (normalizes OK) | **the trigger** (the `null`) → kept |
-| remove `limits` | No (clean `ConfigError`) | required section → kept |
+| 1 | `metadata` | still crashes | REMOVED |
+| 2 | `server` | clean `ConfigError` | **ESSENTIAL** (kept) |
+| 3 | `server.host` | still crashes | REMOVED |
+| 4 | `server.port` | still crashes | REMOVED |
+| 5 | `features` | clean `ConfigError` | **ESSENTIAL** (kept) |
+| 6 | `features.cache` | still crashes | REMOVED |
+| 7 | `features.debug` | normalizes OK | **ESSENTIAL** (the trigger) |
+| 8 | `features.experimental` | still crashes | REMOVED |
+| 9 | `features.recommendations` | still crashes | REMOVED |
+| 10 | `features.new_checkout` | still crashes | REMOVED |
+| 11 | `limits` | clean `ConfigError` | **ESSENTIAL** (kept) |
+| 12 | `limits.max_users` | still crashes | REMOVED |
+| 13 | `limits.timeout` | still crashes | REMOVED |
+| 14 | `limits.retries` | still crashes | REMOVED |
+| 15 | `logging` | still crashes | REMOVED |
+| 16 | `services` | still crashes | REMOVED |
+| 17 | `security` | still crashes | REMOVED |
 
 ### Minimal or near-minimal failure-inducing input
 
@@ -192,8 +197,8 @@ element was deleted in turn:
 ```
 
 **Why this input still fails.** `server`, `features` and `limits` must all be present, otherwise
-`validate_required_sections` raises a clean `ConfigError` (Phase 2) — a different outcome, not the
-crash. With all three present, `normalize_features` calls `parse_bool(features["debug"])` =
+`validate_required_sections` raises a clean `ConfigError` (the ESSENTIAL rows above) — a different
+outcome, not the crash. With all three present, `normalize_features` calls `parse_bool(features["debug"])` =
 `parse_bool(None)`, which executes `None.lower()` → `AttributeError`. The `null` boolean value is the
 single irreducible trigger; everything else in the original file is noise.
 
@@ -222,10 +227,13 @@ load_config('large_config_failure.json')
 
 Interpretation:
 
-- **Sections processed:** `server` is normalized successfully, then `features` begins. `limits` and
-  `logging` are never reached — the program crashes inside `features`.
-- **Fields normalized:** inside `features`, `parse_bool` runs per boolean flag: `cache=True` (a `bool`,
-  fine), then `debug=None`.
+- **Sections processed:** `normalize_config` handles `server`, `features`, `limits`, `logging` in that
+  order; `metadata`, `services` and `security` are ignored (never read). Here `server` is normalized
+  successfully and `features` begins; the crash occurs inside `features`, so `limits` and `logging` are
+  never reached.
+- **Fields normalized:** before `features`, `normalize_server` reads and validates `server.host` and
+  `server.port` (both valid). Then inside `features`, `parse_bool` runs per boolean flag: `cache=True`
+  (a `bool`, fine), then `debug=None`.
 - **Value of the wrong type:** `debug=None` (JSON `null`) is a `NoneType`, neither `bool` nor `str`,
   so `parse_bool`'s string assumption does not hold.
 - **State right before the crash:** the last call is `parse_bool(value=None)`; it crashes at
