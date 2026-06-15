@@ -192,10 +192,19 @@ bu `parse_bool`'a geçer.
 ---
 
 ## Soru 8 — Defect–Infection–Failure Chain
-- **Defect:**
-- **Infection:**
-- **Propagation:**
-- **Failure:**
+- **Defect (kusur):** Koddaki statik hata — `parse_bool` (`config_parser.py:150`) yalnızca `bool`'u
+  özel-durum yapıp (s.144) ardından `value.lower()` çağırır; `bool` olmayan her değeri string-benzeri
+  varsayar, `None`/başka tip için kontrol yok (kendi yorumunda yazılı, s.147–149). Tetiklenene dek uykuda.
+- **Infection (enfeksiyon):** Çalışma anında kusura `value = None` ile ulaşılır (`features.debug: null`).
+  Program hatalı duruma girer: kontrol satır 150'de, `None` üzerinde `.lower()` çağırmak üzere — bu tip
+  için geçersiz işlem. (`None`'un buraya nasıl geldiği §7 slice'ı: `json.load` → `normalize_features`
+  s.73 → `parse_bool`.)
+- **Propagation (yayılım):** `None.lower()` `AttributeError` fırlatır; bu **çağrı yığınında yukarı,
+  yakalanmadan** yayılır: `parse_bool` → `normalize_features` (s.73) → `normalize_config` (s.24) →
+  `load_config` (s.16) → `app.py main`. `app.py` yalnızca `ConfigError` yakaladığı için `AttributeError`'a
+  hiçbir şey müdahale etmez.
+- **Failure (başarısızlık):** Dışarıdan gözlemlenen sonuç — program, temiz bir `CONFIG_ERROR: ...`
+  mesajı yerine yakalanmayan istisna traceback'i ve çıkış kodu **1** ile çöker. Kullanıcının gördüğü budur.
 
 ---
 

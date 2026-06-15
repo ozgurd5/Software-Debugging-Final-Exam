@@ -283,11 +283,29 @@ returns `None`, which is then handed to `parse_bool`.
 
 ### Defect
 
+The static flaw in the code: `parse_bool` (`config_parser.py:150`) calls `value.lower()` after only
+special-casing `bool` (line 144). It assumes every non-`bool` value is string-like, with no handling
+for `None` or other JSON types — stated in its own comment (lines 147–149). The defect is dormant until
+a non-bool, non-string value reaches it.
+
 ### Infection
+
+At runtime the defect is reached with `value = None` (from `features.debug: null`). The program enters
+an erroneous state: control is at line 150, about to call `.lower()` on `None` — an operation invalid
+for that type. (How `None` arrives here is the data slice of §8: `json.load` → `normalize_features`
+line 73 → `parse_bool`.)
 
 ### Propagation
 
+`None.lower()` raises `AttributeError`, which propagates **up the call stack uncaught**: `parse_bool` →
+`normalize_features` (line 73) → `normalize_config` (line 24) → `load_config` (line 16) → `app.py`
+`main`. `app.py` catches only `ConfigError`, so nothing intercepts an `AttributeError`.
+
 ### Failure
+
+The externally observable result: the program terminates with an uncaught-exception traceback and exit
+code **1** — a CRASH — instead of printing a clean `CONFIG_ERROR: ...` message. This is what the user
+sees.
 
 ---
 

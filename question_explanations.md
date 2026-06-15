@@ -360,3 +360,31 @@ S6 trace'i + kodu okuyarak `value`'nun kaynağını geriye izledik:
 Slice, "kocaman programın hangi birkaç satırı bu çöküşe yol açtı?" sorusunu cevaplar. İlgisiz onlarca
 satırı eleyip dikkati kritik bağımlılık zincirine odaklar ve patch'i (S9) tam doğru yere koymamızı
 sağlar: zincirin neresini düzeltmeliyiz (`parse_bool`'un tip varsayımı).
+
+---
+
+## Soru 8 — Defect–Infection–Failure Chain
+
+### 1. Üç kavram neden ayrı?
+Bir hatanın üç farklı 'katmanı' vardır; karıştırılırsa yanlış yeri düzeltirsin:
+- **Defect:** koddaki YANLIŞ (statik — dosyada duran kusur).
+- **Infection:** o kusurun çalışınca ürettiği YANLIŞ DURUM (runtime — bellekteki/akıştaki hatalı hâl).
+- **Failure:** o yanlış durumun DIŞARIDAN görülen sonucu (yanlış çıktı / çöküş).
+
+### 2. Neden hepsi aynı şey değil?
+- Defect her zaman infection üretmez: kusurlu satıra hiç **uğranmazsa** (ya da uğranıp durum yine de
+  doğru kalırsa) infection olmaz. Bizde `bool` veya geçerli string gelseydi defect uykuda kalırdı.
+- Infection her zaman failure üretmez: yanlış durum dışarı yansımadan **maskelenebilir/düzelebilir**.
+  Bizde ise infection anı (`.lower()`) doğrudan çöküşe döndüğü için failure hemen geliyor.
+
+### 3. Bu hatadaki zincir
+- **Defect:** `parse_bool` s.150 `value.lower()` — `bool` olmayan her şeyi string sayar (s.147–149 yorum).
+- **Infection:** `value=None` ile s.150'ye ulaşılır; `None` üzerinde string işlemi yapılmak üzere.
+- **Propagation:** `AttributeError` çağrı yığınında yukarı yakalanmadan yayılır (`app.py` yalnız
+  `ConfigError` yakalar).
+- **Failure:** traceback + çıkış kodu 1 (CRASH); temiz `CONFIG_ERROR` değil.
+
+### 4. Neden değerli?
+Zinciri ayırmak, düzeltmenin **nereye** gideceğini söyler: failure'ı (çöküşü) değil, **defect'i**
+(`parse_bool`'un tip varsayımı) düzeltiriz. `app.py`'de istisnayı yakalamak failure'ı gizlerdi ama defect
+yerinde kalırdı — semptomu örtmek gibi. Doğru patch (S9) defect'i kaynağında giderir.
