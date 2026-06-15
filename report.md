@@ -416,8 +416,21 @@ from the Section 4 suite, so the full run is 16 tests once the patch is in place
 
 ## 13. Bonus: Mutation Testing
 
-Optional.
+To gauge the **quality of the test suite**, six small mutations were applied to the patched
+`src/config_parser.py` one at a time, and the full 16-test suite was run against each. A mutant is
+**killed** when at least one test fails on it, and **survives** when every test still passes (a gap in
+the suite). This is automated and reproducible in `debugging_logs/mutation_test.py` (output:
+`debugging_logs/mutation_output.md`); the baseline (no mutation) is green, so the measurement is valid.
 
 | Mutant | Change | Killed? | Explanation |
 |---|---|---|---|
-| | | | |
+| M1 | `parse_bool`: drop the non-string guard (reverts the fix) | **Killed** | `null`/int/list reach `.lower()` and crash; the four type tests and the regression test expect a clean `ConfigError` but get `AttributeError`. |
+| M2 | `parse_bool`: drop `"1"` from `["true", "yes", "1"]` | **Killed** | `cache="1"` no longer parses to `True`; `test_alternative_string_booleans` expects `True`, gets a `ConfigError`. |
+| M3 | `normalize_logging`: add `"VERBOSE"` to the valid levels | **Killed** | `level="VERBOSE"` is accepted; `test_invalid_logging_level_raises_config_error` expects `ConfigError`, gets a normalized config. |
+| M4 | `validate_required_sections`: `not in` → `in` | **Killed** | a present section now raises "Missing required section"; `test_valid_minimal_defaults` expects a normalized dict, gets `ConfigError`. |
+| M5 | `normalize_server`: port `> 65535` → `>= 65535` | **Survived** | only `port == 65535` changes (now rejected); no test uses that boundary, so nothing catches it. |
+| M6 | `normalize_features`: cache default `False` → `True` | **Killed** | with `features={}` the cache defaults to `True`; `test_valid_minimal_defaults` asserts `cache is False`. |
+
+**Mutation score: 5 / 6 killed (≈ 83%).** The lone survivor (M5) is a real gap — the upper port
+boundary `65535` is never tested. A test with `server.port = 65535` expecting success would kill it and
+raise the score to 6/6.

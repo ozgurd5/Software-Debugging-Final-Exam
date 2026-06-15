@@ -443,3 +443,35 @@ Detay `report.md` §12 / `exam_answers.md` Bonus A.
 S3 testleri analiz sırasında, hatayı **bulmak** için yazıldı. Bu regression testi düzeltmeyi **korumak**
 için; ayrıca S2 oracle'ı + S5 minimal girdiyi birleştirip farklı bir açıdan (oracle üzerinden) sabitler —
 `test_null_debug`'ın birebir kopyası değil.
+
+---
+
+## Bonus B — Mutation Testing
+
+### 1. Mutation testing nedir?
+Testlerin **kalitesini** ölçer. Fikir: koda kasıtlı küçük hatalar (mutant) enjekte et, testleri çalıştır,
+testler bu hatayı **yakalıyor mu** bak. İyi bir suite, anlamlı bir mutasyonu en az bir testin kırmızıya
+dönmesiyle yakalar.
+
+### 2. Killed / Survived / mutation score
+- **Killed:** mutant uygulanınca **en az bir test başarısız** olur → suite hatayı yakaladı (iyi).
+- **Survived:** tüm testler hâlâ geçer → mutant fark edilmedi → suite'te **boşluk** (o davranış test
+  edilmiyor).
+- **Mutation score** = killed / toplam mutant. Yüksek skor = güçlü suite (test *sayısı* değil, testlerin
+  ne kadar yakaladığı önemli).
+
+### 3. Neden baseline yeşil olmalı?
+Mutasyondan önce tüm testler geçmeli; yoksa "test kırmızı oldu" sinyalinin mutanttan mı yoksa zaten kırık
+bir testten mi geldiğini ayıramayız. Bizde baseline = 16 passed (yamalı kod).
+
+### 4. Bizim sonucumuz
+`debugging_logs/mutation_test.py` 6 mutant uyguladı → **5 killed, 1 survived** (skor 5/6 ≈ %83).
+- **Killed:** M1 (fix'i geri alma), M2 (`"1"` çıkarma), M3 (VERBOSE kabul), M4 (presence check ters),
+  M6 (cache varsayılanı) — her biri ilgili bir testçe yakalandı.
+- **Survived:** M5 (port `>` → `>=`) — yalnız `port==65535` sınırını değiştirir, o değer test edilmediği
+  için kaçar. Boşluğu kapatmak: `server.port = 65535`'i başarı bekleyen bir test.
+Detay `report.md` §13 / `exam_answers.md` Bonus B.
+
+### 5. Neden değerli?
+"Testlerim geçiyor" yetmez — testler **gerçekten hata yakalıyor mu?** Mutation testing bunu nicel ölçer
+ve test boşluklarını (M5 gibi) somut gösterir. S3 testlerinin bug'ı yakaladığını (M1) bağımsızca doğrular.

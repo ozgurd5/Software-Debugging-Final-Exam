@@ -262,6 +262,21 @@ bu `parse_bool`'a geçer.
 
 ## Bonus B — Mutation Testing (≥5 mutant)
 
+Test suite'inin **kalitesini** ölçmek için yamalı `src/config_parser.py`'ye tek tek **6 küçük mutasyon**
+uygulandı; her birinde **16 testlik suite** çalıştırıldı. Bir mutant en az bir test başarısız olursa
+**killed (öldürüldü)**, tüm testler geçerse **survived (hayatta kaldı = test boşluğu)**. Otomatik +
+tekrar-üretilebilir: `debugging_logs/mutation_test.py` (çıktı: `debugging_logs/mutation_output.md`);
+baseline (mutasyonsuz) yeşil olduğundan ölçüm geçerli.
+
 | Mutant | Değişiklik | Testler yakaladı mı? | Açıklama |
 |---|---|---|---|
-| | | | |
+| M1 | `parse_bool`: non-string guard'ı sil (fix'i geri al) | **Killed** | `null`/int/list `.lower()`'a ulaşıp çöker; 4 tip testi + regression `ConfigError` beklerken `AttributeError` alır. |
+| M2 | `parse_bool`: `["true", "yes", "1"]`'den `"1"`'i çıkar | **Killed** | `cache="1"` artık `True`'ya parse olmaz; `test_alternative_string_booleans` `True` beklerken `ConfigError` alır. |
+| M3 | `normalize_logging`: `"VERBOSE"`'u geçerli level yap | **Killed** | `level="VERBOSE"` kabul edilir; `test_invalid_logging_level...` `ConfigError` beklerken normalize sonucu alır. |
+| M4 | `validate_required_sections`: `not in` → `in` | **Killed** | var olan bölüm "Missing required section" verir; `test_valid_minimal_defaults` dict beklerken `ConfigError` alır. |
+| M5 | `normalize_server`: port `> 65535` → `>= 65535` | **Survived** | yalnız `port == 65535` değişir (artık reddedilir); bu sınırı hiçbir test kullanmıyor → kimse yakalamaz. |
+| M6 | `normalize_features`: cache varsayılanı `False` → `True` | **Killed** | `features={}` ile cache `True` olur; `test_valid_minimal_defaults` `cache is False` bekler. |
+
+**Mutation score: 5 / 6 killed (≈ %83).** Tek hayatta kalan (M5) gerçek bir boşluktur: üst port sınırı
+`65535` hiç test edilmiyor. `server.port = 65535`'i başarı bekleyen bir test eklemek onu öldürür ve
+skoru 6/6 yapar.
