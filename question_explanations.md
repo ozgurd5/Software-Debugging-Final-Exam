@@ -272,3 +272,58 @@ Faz 2: kalan 4 eleman (`server`, `features`, `features.debug`, `limits`) — her
 kaybolur → **1-minimal**. Minimum: `{"server": {}, "features": {"debug": null}, "limits": {}}`.
 Çalıştırılabilir kanıt: `debugging_logs/delta_debugging.py` (+ `_output.md`); tablo report.md §6 /
 exam_answers.md S5.
+
+---
+
+## Soru 6 — Trace / Logging Analizi
+
+### 1. Trace / logging nedir?
+Program çalışırken **ne yaptığını** (hangi fonksiyon çağrıldı, hangi değer neydi) adım adım kaydetmek.
+Statik (gözle) okumanın aksine, **gerçek çalışmada** ne olduğunu — özellikle çöküşe giden yolu — gösterir.
+
+### 2. Instrumentation: koda dokunmadan izleme
+Bir yol, koda geçici `print` eklemektir; ama biz hocanın koduna dokunmadan (Kural 9) **çalışma anında
+fonksiyonları sardık** (monkeypatch): orijinali çağırmadan önce log basan bir "sarmalayıcı" ile
+değiştirdik. Böylece kaynak tertemiz kalır, izleme tamamen dışarıdan yapılır.
+
+### 3. `trace_run.py` nasıl çalışır? (adım adım)
+Fikir: parser fonksiyonlarını, **log basıp sonra orijinali çağıran** ince kopyalarıyla değiştirmek.
+
+1. **Modülü nesne gibi al:** `import src.config_parser as cp`. Artık `cp` bir modül nesnesidir;
+   fonksiyonları onun **öznitelikleri**dir (`cp.parse_bool`, `cp.normalize_features`, ...).
+2. **Orijinalleri sakla:** `original_parse_bool = cp.parse_bool`. Wrapper'ın gerçek işi yapabilmesi için
+   orijinal fonksiyonun referansını bir kenara koyarız.
+3. **Düz wrapper'lar tanımla:** her `traced_*` önce log basar, sonra sakladığı orijinali çağırır:
+   ```python
+   def traced_parse_bool(value):
+       ...   # value ve type'ı logla, yanlış tipi işaretle
+       return original_parse_bool(value)
+   ```
+4. **Değiştir (monkeypatch):** `cp.parse_bool = traced_parse_bool`. Modülün özniteliğini kendi
+   wrapper'ımıza yönlendiririz — **kaynak dosyaya hiç dokunmadan**.
+5. **Neden içerideki çağrılar da yakalanır? (kilit nokta):** `normalize_config`, içinde
+   `normalize_features(...)` ya da `parse_bool(...)` yazdığında, bu ismi **çağrı anında** modülün global
+   isim alanında arar. Biz o globali (modül özniteliğini) değiştirdiğimiz için, içerideki çağrılar artık
+   bizim wrapper'a düşer. Kaynağı düzenlemeden iç çağrıları yakalamamızın sebebi budur.
+6. **Çalıştır ve yakala:** `cp.load_config(path)` gerçek boru hattını (artık izlenen) çalıştırır.
+   `try/except` iki sonucu ayırır: `ConfigError` (kontrollü) vs. başka istisna (çöküş). Çöküşte,
+   `traceback.extract_tb(...)[-1]` ile **en son kare** (gerçekten çökülen yer = `parse_bool`, satır 150)
+   alınıp fonksiyon + satır basılır.
+7. **Neden limits/logging sarılmadı?** `normalize_config` sırası server → features → limits → logging'dir.
+   Çöküş `features`'ta olduğu için limits/logging hiç çalışmaz; sarsak da bir şey basmazlardı — bu yüzden
+   yalnızca server + features + parse_bool sarıldı (gereksiz kod yok, Kural 15).
+
+### 4. Ne gözlemledik (sınavın istediği 4 şey)?
+- **Hangi bölümler işlendi:** server → features; limits/logging'e ulaşılmadı (çöküş features'ta).
+- **Hangi alanlar normalize edildi:** cache, debug → `parse_bool` ile.
+- **Hangi değer beklenen tipte değil:** `debug=None` → `NoneType` (bool/str değil).
+- **Çöküş öncesi durum:** `parse_bool`, `value=None`, `config_parser.py:150` (`value.lower()`).
+
+### 5. Neden değerli?
+Trace, defect→infection→failure zincirini (S8) **gözle görülür** kılar: tam olarak nerede, hangi
+değerle, hangi satırda çökülmüş ve hangi bölümlere ulaşılmamış. Bu hem kök nedeni doğrular hem de
+patch'in (S9) nereye gerektiğini gösterir.
+
+### 6. Bizim çıktımız
+`debugging_logs/trace_run.py` (sarmalayıcı tracer) + `debugging_logs/trace_output.md`. Doldurulmuş
+analiz `report.md` §7 ve `exam_answers.md` S6'da.

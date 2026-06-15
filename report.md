@@ -201,13 +201,36 @@ single irreducible trigger; everything else in the original file is noise.
 
 ## 7. Trace / Logging Analysis
 
+The trace was produced by `debugging_logs/trace_run.py`, which wraps the parser's functions at runtime
+(the source is not modified) and logs each section/field as it is processed, then reports the state at
+the crash. Full output: `debugging_logs/trace_output.md`.
+
 Relevant trace:
 
 ```text
+load_config('large_config_failure.json')
 
+[section]    processing 'server'  (keys = ['host', 'port'])
+[section]    processing 'features'  (keys = ['cache', 'debug', 'experimental', 'recommendations', 'new_checkout'])
+[parse_bool]  value=True  type=bool
+[parse_bool]  value=None  type=NoneType   <-- NOT bool/str: unexpected type!
+
+!! CRASH: AttributeError: 'NoneType' object has no attribute 'lower'
+   right before crash: parse_bool() at config_parser.py:150
+   crashing line: lowered = value.lower()
 ```
 
 Interpretation:
+
+- **Sections processed:** `server` is normalized successfully, then `features` begins. `limits` and
+  `logging` are never reached — the program crashes inside `features`.
+- **Fields normalized:** inside `features`, `parse_bool` runs per boolean flag: `cache=True` (a `bool`,
+  fine), then `debug=None`.
+- **Value of the wrong type:** `debug=None` (JSON `null`) is a `NoneType`, neither `bool` nor `str`,
+  so `parse_bool`'s string assumption does not hold.
+- **State right before the crash:** the last call is `parse_bool(value=None)`; it crashes at
+  `config_parser.py:150` executing `lowered = value.lower()` — `None` has no `.lower()` →
+  `AttributeError`.
 
 ---
 

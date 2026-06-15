@@ -141,11 +141,26 @@ Eksik bölümden (H3) ve büyük/iç içe yapıdan (H4) **bağımsız**.
 ---
 
 ## Soru 6 — Trace / Logging Analizi
-- **İşlenen ana bölümler:**
-- **Normalize edilen alanlar:**
-- **Beklenen tipte olmayan değer(ler):**
-- **Çöküşten hemen önceki fonksiyon çağrısı ve değişken değerleri:**
+Trace, `debugging_logs/trace_run.py` ile üretildi: parser fonksiyonları çalışma anında **sarılarak**
+(hocanın kodu değiştirilmeden) her bölüm/alan işlenirken loglandı ve çöküş anı yakalandı. Tam çıktı:
+`debugging_logs/trace_output.md`.
+- **İşlenen ana bölümler:** `server` başarıyla normalize edildi, sonra `features` başladı; `limits` ve
+  `logging`'e **hiç ulaşılmadı** — çöküş `features` içinde.
+- **Normalize edilen alanlar:** `features` içinde her boolean bayrak için `parse_bool` çağrıldı:
+  `cache=True` (bool, sorunsuz), sonra `debug=None`.
+- **Beklenen tipte olmayan değer:** `debug=None` (JSON `null`) → `NoneType`; ne `bool` ne `str`, yani
+  `parse_bool`'un string varsayımı tutmuyor.
+- **Çöküşten hemen önceki fonksiyon çağrısı + değişken değerleri:** son çağrı `parse_bool(value=None)`;
+  `config_parser.py:150`'de `lowered = value.lower()` satırında çöküyor (`None`'un `.lower()`'ı yok →
+  `AttributeError`).
 - **İlgili trace (kısa):**
+  ```text
+  [section]    processing 'server'  (keys = ['host', 'port'])
+  [section]    processing 'features' (keys = ['cache', 'debug', 'experimental', ...])
+  [parse_bool]  value=True  type=bool
+  [parse_bool]  value=None  type=NoneType   <-- NOT bool/str: unexpected type!
+  !! CRASH: AttributeError -> parse_bool() at config_parser.py:150 (lowered = value.lower())
+  ```
 
 ---
 
