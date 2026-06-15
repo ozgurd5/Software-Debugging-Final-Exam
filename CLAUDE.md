@@ -128,7 +128,8 @@ Bağlayıcıdır.
     Hedef: bu projeyi ve bu konuşmayı hiç bilmeyen bir insan/AI dosyayı okuyup anlayabilsin.
 12. **Hata günlüğü (`claude_mistakes.md`).** Kullanıcı seni her düzelttiğinde: hatayı, neden saçma
     olduğunu, neyi gözden kaçırdığını yaz; en üstteki **hata sayacını +1** artır. Hata kullanıcının
-    zamanını çalar ve güvenilirliğini düşürür.
+    zamanını çalar ve güvenilirliğini düşürür. **Atlama/kaçma YOK** — küçük düzeltme/iyileştirme dahil
+    HER düzeltme, olduğu anda loglanır; "buna gerek yok" deyip geçme.
 13. **Satır sarma (markdown).** Uzun satırları ~100 karakterde elle böl (hard wrap) ki IDE'de
     kaynak olarak yatay kaydırmadan okunsun. Liste maddelerinin devam satırlarını 2 boşluk girintile.
     (PyCharm'da Settings → Editor → General → Soft Wraps ile de açılabilir.)

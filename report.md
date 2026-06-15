@@ -142,19 +142,60 @@ H1 (the `null` in `features.debug`) and generalised by H2 (any non-bool, non-str
 
 ### Original input size
 
+`inputs/large_config_failure.json`: ≈61 lines, 7 top-level sections (`metadata`, `server`,
+`features`, `limits`, `logging`, `services`, `security`); `features` alone has 5 keys.
+
 ### Reduction steps
 
-| Step | Change attempted | Did failure remain? | Conclusion |
+A **systematic greedy minimizer** (`debugging_logs/delta_debugging.py`) automatically visits every
+element (each key, at any depth) and deletes it only if the crash still occurs (decided by
+`tests/oracle.is_failure`), repeating until nothing more can be removed. Full trace:
+`debugging_logs/delta_debugging_output.md`. **Phase 1** — each deletion, one element per step:
+
+| Step | Change attempted | Failure remained? | Conclusion |
 |---|---|---|---|
-| 1 | | | |
-| 2 | | | |
-| 3 | | | |
+| 1 | remove `metadata` | Yes | irrelevant → removed |
+| 2 | remove `server.host` | Yes | irrelevant → removed |
+| 3 | remove `server.port` | Yes | `server` now `{}` → removed |
+| 4 | remove `features.cache` | Yes | not the trigger → removed |
+| 5 | remove `features.experimental` | Yes | not the trigger → removed |
+| 6 | remove `features.recommendations` | Yes | unused key → removed |
+| 7 | remove `features.new_checkout` | Yes | unused key → removed |
+| 8 | remove `limits.max_users` | Yes | irrelevant → removed |
+| 9 | remove `limits.timeout` | Yes | irrelevant → removed |
+| 10 | remove `limits.retries` | Yes | `limits` now `{}` → removed |
+| 11 | remove `logging` | Yes | irrelevant → removed |
+| 12 | remove `services` | Yes | irrelevant → removed |
+| 13 | remove `security` | Yes | irrelevant → removed |
+
+**Phase 2 — 1-minimality check.** A failure-inducing input is **1-minimal** when removing *any* single
+remaining element makes the failure disappear (so it cannot be shrunk any further). Each remaining
+element was deleted in turn:
+
+| Change attempted | Failure remained? | Conclusion |
+|---|---|---|
+| remove `server` | No (clean `ConfigError`) | required section → kept |
+| remove `features` | No (clean `ConfigError`) | required section → kept |
+| remove `features.debug` | No (normalizes OK) | **the trigger** (the `null`) → kept |
+| remove `limits` | No (clean `ConfigError`) | required section → kept |
 
 ### Minimal or near-minimal failure-inducing input
 
 ```json
-
+{
+  "server": {},
+  "features": {
+    "debug": null
+  },
+  "limits": {}
+}
 ```
+
+**Why this input still fails.** `server`, `features` and `limits` must all be present, otherwise
+`validate_required_sections` raises a clean `ConfigError` (Phase 2) — a different outcome, not the
+crash. With all three present, `normalize_features` calls `parse_bool(features["debug"])` =
+`parse_bool(None)`, which executes `None.lower()` → `AttributeError`. The `null` boolean value is the
+single irreducible trigger; everything else in the original file is noise.
 
 ---
 

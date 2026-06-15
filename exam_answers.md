@@ -96,16 +96,47 @@ Eksik bölümden (H3) ve büyük/iç içe yapıdan (H4) **bağımsız**.
 ---
 
 ## Soru 5 — Delta Debugging / Input Minimization
-- **Başlangıç input büyüklüğü:**
-- **Küçültme adımları:**
+1. **Başlangıç input büyüklüğü:** `large_config_failure.json` ≈61 satır, 7 üst bölüm (metadata,
+   server, features, limits, logging, services, security); features'ta 5 anahtar.
+2. **Küçültme adımları:** **Sistematik greedy minimizer** (`debugging_logs/delta_debugging.py`),
+   config'in **her elemanını** (her derinlikteki her anahtar) tek tek silmeyi dener; failure
+   (`is_failure`) korunuyorsa silmeyi tutar, fixpoint'e kadar tekrarlar. Tam iz
+   `debugging_logs/delta_debugging_output.md`'de. **Faz 1 — her adımda tek eleman:**
 
-| Adım | Denenen değişiklik | Failure devam etti mi? | Sonuç |
+| Adım | Çıkarılan | Failure devam etti mi? | Sonuç |
 |---|---|---|---|
-| | | | |
+| 1 | `metadata` | Evet | alakasız → çıkarıldı |
+| 2 | `server.host` | Evet | alakasız → çıkarıldı |
+| 3 | `server.port` | Evet | `server` artık `{}` → çıkarıldı |
+| 4 | `features.cache` | Evet | tetikleyici değil → çıkarıldı |
+| 5 | `features.experimental` | Evet | tetikleyici değil → çıkarıldı |
+| 6 | `features.recommendations` | Evet | kullanılmıyor → çıkarıldı |
+| 7 | `features.new_checkout` | Evet | kullanılmıyor → çıkarıldı |
+| 8 | `limits.max_users` | Evet | alakasız → çıkarıldı |
+| 9 | `limits.timeout` | Evet | alakasız → çıkarıldı |
+| 10 | `limits.retries` | Evet | `limits` artık `{}` → çıkarıldı |
+| 11 | `logging` | Evet | alakasız → çıkarıldı |
+| 12 | `services` | Evet | alakasız → çıkarıldı |
+| 13 | `security` | Evet | alakasız → çıkarıldı |
 
-- **Failure devam eden / kaybolan parçalar:**
-- **Minimum (veya minimuma yakın) failure-inducing input:**
-- **Neden failure üretiyor:**
+3. **Çıkarınca failure DEVAM eden parçalar (alakasız → çıkarıldı):** yukarıdaki 13 eleman.
+4. **Çıkarınca failure KAYBOLAN parçalar (kritik → tutuldu) — Faz 2 (1-minimallik kontrolü):** kalan
+   her eleman tek tek çıkarıldı; hepsinde failure kayboluyor, yani hiçbiri daha fazla küçültülemez:
+
+| Çıkarılan | Failure devam etti mi? | Sonuç |
+|---|---|---|
+| `server` | Hayır (temiz `ConfigError`) | zorunlu bölüm → tutuldu |
+| `features` | Hayır (temiz `ConfigError`) | zorunlu bölüm → tutuldu |
+| `features.debug` | Hayır (sorunsuz normalize) | **tetikleyici** (null) → tutuldu |
+| `limits` | Hayır (temiz `ConfigError`) | zorunlu bölüm → tutuldu |
+5. **Minimum failure-inducing input** (1-minimal — bir eleman daha çıkarılırsa failure kaybolur):
+   ```json
+   {"server": {}, "features": {"debug": null}, "limits": {}}
+   ```
+6. **Neden failure üretiyor:** `server`/`features`/`limits` anahtarları bulunmalı (yoksa
+   `validate_required_sections` temiz `ConfigError` verir — crash değil). Üçü de varken
+   `normalize_features`, `parse_bool(features["debug"])` = `parse_bool(None)` çağırır; `None.lower()`
+   → `AttributeError`. `null` boolean değeri tek indirgenemez tetikleyici; gerisi gürültü.
 
 ---
 
