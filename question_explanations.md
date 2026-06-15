@@ -416,5 +416,30 @@ olduğunu gösterir. Testi gevşetmek (beklentiyi crash'e çevirmek) hatayı giz
 ### 4. Bizim patch'imiz
 `parse_bool` içinde, `bool` kontrolünden sonra: `value` `str` değilse `ConfigError`. Düzeltme **eklemeli**
 (yalnızca guard); yorumlanan/çıkarılan satır yok — `value.lower()` zaten doğruydu, sadece string girdi
-gerekiyordu. Doğrulama: `pytest` → 15 passed; geçerli config'ler CONFIG_OK; bozuk config temiz
-CONFIG_ERROR. Detay `report.md` §10–§11 / `exam_answers.md` S9.
+gerekiyordu. Doğrulama: `pytest` → 16 passed (Bonus A regression dahil); geçerli config'ler CONFIG_OK;
+bozuk config temiz CONFIG_ERROR. Detay `report.md` §10–§11 / `exam_answers.md` S9.
+
+---
+
+## Bonus A — Regression Test
+
+### 1. Regression test nedir?
+Düzeltilen bir hatanın **geri gelmesini** (regression) önleyen testtir. Hata düzeltildikten sonra, onu
+tetikleyen senaryoyu alıp artık **doğru** olan davranışı bekler. Biri ileride fix'i bozarsa test kırmızı
+olur ve hatayı yakalar — fix'i kalıcı olarak "kilitler".
+
+### 2. Neden değerli?
+Bir hatayı bir kez düzeltmek yetmez; refactor/yeni özellik sırasında geri gelebilir. Regression testi bu
+riski otomatikleştirir: hata her döndüğünde pytest kırmızı yanar.
+
+### 3. Bizim regression testimiz
+`tests/test_regression.py`: S5'in minimal girdisini (`{"server":{},"features":{"debug":None},"limits":{}}`)
+S2 oracle'ı ile kontrol eder — `assert is_failure(raw) is False`.
+- Bozuk kodda: `is_failure` → `True` (crash) → test **kırmızı** (hatayı yakalar).
+- Yamalı kodda: `is_failure` → `False` (temiz `ConfigError`) → test **yeşil**.
+Detay `report.md` §12 / `exam_answers.md` Bonus A.
+
+### 4. Neden ayrı bir test (S3'tekiler varken)?
+S3 testleri analiz sırasında, hatayı **bulmak** için yazıldı. Bu regression testi düzeltmeyi **korumak**
+için; ayrıca S2 oracle'ı + S5 minimal girdiyi birleştirip farklı bir açıdan (oracle üzerinden) sabitler —
+`test_null_debug`'ın birebir kopyası değil.

@@ -98,9 +98,11 @@ At the program level this maps to: PASS = exit code 0 (`CONFIG_OK`) or exit code
 The tests live in `tests/test_config_cases.py` (the bundled `tests/test_config_parser.py` is left
 untouched). They deliberately exercise *different* checks from the bundled suite — logging-level and
 section-type validation, alternative boolean spellings, the oracle, and four bug cases — rather than
-repeating it. Current run — **11 passed, 4 failed** (full before-fix output: `debugging_logs/test_results.md`). The four failing tests assert the *correct*
-behaviour (a clean `ConfigError`) and are red only because of the bug; they turn green after the
-patch (Section 10), as shown in Section 11.
+repeating it. Current run of this analysis suite — **11 passed, 4 failed**. The four failing tests assert the
+*correct* behaviour (a clean `ConfigError`) and are red only because of the bug; they turn green after
+the patch (Section 10), as shown in Section 11. With the Bonus A regression test (Section 12, a separate
+file, also red before the fix) the full `pytest` run is 11 passed / 5 failed before the patch and
+16 passed after — see `debugging_logs/test_results.md`.
 
 | Test name | Input summary | Expected result | Actual result | Pass/Fail |
 |---|---|---|---|---|
@@ -367,25 +369,48 @@ input now produces a clean, controlled error instead of an uncaught traceback.
 
 ```bash
 $ .venv/Scripts/python.exe -m pytest -q
-...............                                                          [100%]
-15 passed in 0.03s
+................                                                         [100%]
+16 passed in 0.03s
 
 $ py src/app.py inputs/valid_basic.json            # CONFIG_OK,  exit 0   (unchanged)
 $ py src/app.py inputs/valid_full.json             # CONFIG_OK,  exit 0   (unchanged)
 $ py src/app.py inputs/large_config_failure.json   # CONFIG_ERROR: Invalid boolean value: None,  exit 1
 ```
 
-Before the fix the suite was 11 passed / 4 failed and `large_config_failure.json` crashed with an
-uncaught `AttributeError`. After the fix all 15 tests pass — the 4 type tests (§4) now get the
-`ConfigError` they expect — the valid configs still report `CONFIG_OK`, and the failing config exits
-with a clean `CONFIG_ERROR` (no traceback). The full before-and-after `pytest` runs are captured in
+Before the fix the suite was 11 passed / 5 failed and `large_config_failure.json` crashed with an
+uncaught `AttributeError`. After the fix all 16 tests pass — the 4 type tests (§4) and the Bonus A
+regression test (§12) now get the controlled `ConfigError` they expect — the valid configs still
+report `CONFIG_OK`, and the failing config exits with a clean `CONFIG_ERROR` (no traceback). The full before-and-after `pytest` runs are captured in
 `debugging_logs/test_results.md`.
 
 ---
 
 ## 12. Bonus: Regression Test
 
-Optional.
+A dedicated regression test guards the fixed defect against returning —
+`tests/test_regression.py::test_regression_minimal_input_no_longer_fails`:
+
+```python
+from oracle import is_failure
+
+
+def test_regression_minimal_input_no_longer_fails():
+    raw = {"server": {}, "features": {"debug": None}, "limits": {}}
+    assert is_failure(raw) is False
+```
+
+**What it does.** It feeds the 1-minimal failure-inducing input from delta debugging (Section 6) and
+checks it through the oracle (Section 3): a non-string boolean must be a *controlled* `ConfigError`, so
+`is_failure()` must return `False`, never an uncontrolled crash.
+
+**Why it is a regression test.** It reproduces the exact input that originally crashed and pins the
+*fixed* behaviour. On the unpatched parser it is **red** (`is_failure()` returns `True` — the
+`AttributeError` crash — so `assert True is False` fails), which proves it really detects the defect;
+after the patch (Section 10) it is **green**. If the fix is ever reverted, this test turns red again, so
+the bug cannot return unnoticed.
+
+Verified: unpatched → `AssertionError: assert True is False`; patched → passes. It is a separate file
+from the Section 4 suite, so the full run is 16 tests once the patch is in place.
 
 ---
 
