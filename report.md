@@ -313,12 +313,39 @@ sees.
 
 ### Changed file/function
 
+`src/config_parser.py` → `parse_bool` (the only changed file in the project).
+
 ### Explanation
+
+The defect: `parse_bool` only special-cased `bool` and then called `value.lower()`, assuming every
+remaining value was a string. JSON `null` (Python `None`), and likewise ints or lists, have no
+`.lower()` and crashed with an uncaught `AttributeError`.
+
+The fix is purely additive: a single guard before `value.lower()`. Any value that is not a `str` (and
+not the already-handled `bool`) is rejected with a clean `ConfigError`, matching the function's own
+documented contract — *"Any other value should raise ConfigError."* Nothing is removed or commented
+out — `value.lower()` was never wrong, it only needed its input to be a string, which the guard now
+guarantees.
+
+This repairs the defect at its root (the wrong type assumption in `parse_bool`), not the symptom —
+e.g. catching the exception in `app.py` would hide the crash while leaving the defect in place.
 
 ### Patch summary
 
 ```diff
+     if isinstance(value, bool):
+         return value
 
+-    # Intentional defect:
+-    # This assumes every non-bool value is string-like.
+-    # Some valid JSON values, such as null, will break this assumption.
++    # A non-bool value must be a string to parse as a boolean; any other type
++    # (JSON null -> None, ints, lists, ...) is invalid, so raise ConfigError
++    # (matching this function's documented contract).
++    if not isinstance(value, str):
++        raise ConfigError(f"Invalid boolean value: {value}")
++
+     lowered = value.lower()
 ```
 
 ---
@@ -327,9 +354,23 @@ sees.
 
 Show that tests pass after your fix.
 
-```bash
+After the patch the full suite passes, the two valid configs are unchanged, and the previously crashing
+input now produces a clean, controlled error instead of an uncaught traceback.
 
+```bash
+$ .venv/Scripts/python.exe -m pytest -q
+...............                                                          [100%]
+15 passed in 0.03s
+
+$ py src/app.py inputs/valid_basic.json            # CONFIG_OK,  exit 0   (unchanged)
+$ py src/app.py inputs/valid_full.json             # CONFIG_OK,  exit 0   (unchanged)
+$ py src/app.py inputs/large_config_failure.json   # CONFIG_ERROR: Invalid boolean value: None,  exit 1
 ```
+
+Before the fix the suite was 11 passed / 4 failed and `large_config_failure.json` crashed with an
+uncaught `AttributeError`. After the fix all 15 tests pass — the 4 type tests (§4) now get the
+`ConfigError` they expect — the valid configs still report `CONFIG_OK`, and the failing config exits
+with a clean `CONFIG_ERROR` (no traceback).
 
 ---
 

@@ -144,9 +144,12 @@ def parse_bool(value):
     if isinstance(value, bool):
         return value
 
-    # Intentional defect:
-    # This assumes every non-bool value is string-like.
-    # Some valid JSON values, such as null, will break this assumption.
+    # A non-bool value must be a string to parse as a boolean; any other type
+    # (JSON null -> None, ints, lists, ...) is invalid, so raise ConfigError
+    # (matching this function's documented contract).
+    if not isinstance(value, str):
+        raise ConfigError(f"Invalid boolean value: {value}")
+
     lowered = value.lower()
 
     if lowered in ["true", "yes", "1"]:

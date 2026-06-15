@@ -388,3 +388,31 @@ Bir hatanın üç farklı 'katmanı' vardır; karıştırılırsa yanlış yeri 
 Zinciri ayırmak, düzeltmenin **nereye** gideceğini söyler: failure'ı (çöküşü) değil, **defect'i**
 (`parse_bool`'un tip varsayımı) düzeltiriz. `app.py`'de istisnayı yakalamak failure'ı gizlerdi ama defect
 yerinde kalırdı — semptomu örtmek gibi. Doğru patch (S9) defect'i kaynağında giderir.
+
+---
+
+## Soru 9 — Patch ve Doğrulama
+
+### 1. İyi bir patch neyi hedefler?
+- **Kökü düzelt, semptomu değil:** defect'i (S8) kaynağında gider; çöküşü maskeleme. `app.py`'de
+  `AttributeError` yakalamak failure'ı gizlerdi ama `parse_bool`'un kusuru kalırdı.
+- **Sözleşmeye uy:** `parse_bool`'un docstring'i "diğer her değer ConfigError" der; doğru davranışın
+  ölçütü budur (oracle, S2).
+- **Geçerli girdileri bozma:** `True`, `"yes"`, `"1"` çalışmaya devam etmeli.
+- **En yalın çözüm (Kural 15):** tek bir tip-kontrolü guard'ı yeter, fazlası değil.
+
+### 2. Red → Green (regresyon güvenliği)
+S3'te yazdığımız 4 failing test patch'ten ÖNCE kırmızıydı (kod `AttributeError` veriyordu, `ConfigError`
+beklenirken). Patch'ten SONRA yeşile döndüler; aynı anda eski geçen testler kırmızıya dönmedi.
+"Kırmızı→yeşil ve hiçbir yeşil kırmızıya dönmedi" = doğru patch'in kanıtı.
+
+### 3. Neden testi değil kodu düzeltiriz?
+Test, doğru davranışı (null → ConfigError) ifade eder; başarısızlık testin değil **kodun** yanlış
+olduğunu gösterir. Testi gevşetmek (beklentiyi crash'e çevirmek) hatayı gizlerdi. Bu yüzden S9'da yalnız
+`config_parser.py` değişir; testler aynı kalır.
+
+### 4. Bizim patch'imiz
+`parse_bool` içinde, `bool` kontrolünden sonra: `value` `str` değilse `ConfigError`. Düzeltme **eklemeli**
+(yalnızca guard); yorumlanan/çıkarılan satır yok — `value.lower()` zaten doğruydu, sadece string girdi
+gerekiyordu. Doğrulama: `pytest` → 15 passed; geçerli config'ler CONFIG_OK; bozuk config temiz
+CONFIG_ERROR. Detay `report.md` §10–§11 / `exam_answers.md` S9.

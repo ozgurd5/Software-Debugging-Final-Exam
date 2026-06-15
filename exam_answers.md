@@ -209,10 +209,21 @@ bu `parse_bool`'a geçer.
 ---
 
 ## Soru 9 — Patch ve Doğrulama
-1. **Değişen dosya/fonksiyon:**
-2. **Bu değişiklik neden doğru:**
-3. **Başka geçerli config'leri bozar mı:**
-4. **Hangi testlerle doğrulandı (tüm testler geçti mi):**
+1. **Değişen dosya/fonksiyon:** `src/config_parser.py` → `parse_bool` (projedeki tek değişen dosya).
+   `bool` kontrolünden sonra **eklenen tek koruma**: `value` `str` değilse `ConfigError`. Düzeltme
+   tamamen **eklemeli** — hiçbir satır çıkarılmadı/yorumlanmadı; `value.lower()` zaten yanlış değildi,
+   yalnızca string girdi gerekiyordu, onu da guard garantiliyor.
+2. **Bu değişiklik neden doğru:** Defect'i **kökünden** giderir — `parse_bool`'un "bool olmayan = string"
+   varsayımını. Fonksiyonun kendi docstring'i *"Any other value should raise ConfigError"* der; patch
+   tam bunu yapar: `null`/`int`/`list` gibi geçersiz tipler artık **temiz `ConfigError`** verir (çöküş
+   değil). `app.py`'de istisnayı yakalamak semptomu gizlerdi ama defect yerinde kalırdı (S8).
+3. **Başka geçerli config'leri bozar mı:** Hayır. `True/False` satır 144'teki `bool` kontrolünden döner;
+   `"true"/"yes"/"1"` gibi geçerli string'ler `str` olduğundan korumadan geçip eskisi gibi çalışır.
+   Doğrulama: `valid_basic.json` ve `valid_full.json` → patch sonrası **CONFIG_OK** (çıkış 0), değişmedi.
+4. **Hangi testlerle doğrulandı (tüm testler geçti mi):** Tüm suite —
+   `.venv\Scripts\python.exe -m pytest -q` → **15 passed**. Patch öncesi 11 passed / 4 failed idi; S3'teki
+   4 failing test (`null`/`int`/`list`/large-file → `ConfigError` bekleyen) artık **geçiyor**, geçenler
+   bozulmadı. Ayrıca `large_config_failure.json` → `CONFIG_ERROR: Invalid boolean value: None` (traceback yok).
 
 ---
 
