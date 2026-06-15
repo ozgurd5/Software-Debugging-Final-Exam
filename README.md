@@ -14,7 +14,6 @@ finishing with a root-cause patch, a regression test and mutation testing.
 ## 📂 Table of Contents and File Descriptions
 
 ### 1. The Parser (`src/`)
-The program under investigation.
 * **`config_parser.py`** — loads, validates and normalizes a config into `server`, `features`, `limits`
   and `logging`. Holds the defect in `parse_bool` and its root-cause fix (a type guard that rejects
   non-string values with a clean `ConfigError`).
@@ -26,29 +25,41 @@ The program under investigation.
 * **`large_config_failure.json`** — the failure-inducing input (`"debug": null`) that triggers the bug.
 
 ### 3. Tests (`tests/`)
-* **`oracle.py`** — the test oracle `is_failure()`: an uncontrolled crash is a *failure*, while a clean
-  `ConfigError` or a normal result is *expected* (so the fix can be validated).
-* **`test_config_cases.py`** — passing and failing tests covering defaults, alternative boolean
-  spellings, validation, and the four type-handling bug cases.
-* **`test_regression.py`** — the regression guard: the minimal failing input must stay a controlled
-  `ConfigError`, never crash again.
+* **`oracle.py`** — the test oracle `is_failure()`: an uncontrolled crash is a *failure*, a clean
+  `ConfigError` or a normal result is *expected*.
+* **`test_config_cases.py`** — passing/failing tests: defaults, alternative boolean spellings,
+  validation, and the four type-handling bug cases.
+* **`test_regression.py`** — the regression guard (Bonus A): the minimal failing input must stay a
+  controlled `ConfigError`.
 * **`test_config_parser.py`** — the bundled starter tests (left untouched).
 
 ### 4. Debugging Evidence (`debugging_logs/`)
-Runnable scripts and their captured `.md` outputs, one per technique:
-* **`hypothesis_experiments.py`** — scientific debugging: four hypotheses, each tested by changing one
-  variable on the real failing input.
-* **`delta_debugging.py`** — input minimization down to the 1-minimal failure-inducing input.
-* **`trace_run.py`** — a runtime execution trace produced by wrapping the parser's functions at runtime
-  (the source is never modified).
-* **`mutation_test.py`** — mutation testing: applies small code mutations and measures how many the test
-  suite catches.
-* **`test_results.md`** — the full test suite before and after the fix (red → green).
+Each technique has a runnable script and a captured `.md` output:
+* **`hypothesis_experiments.py`** + **`hypothesis_experiments_output.md`** — scientific debugging (four
+  hypotheses, one variable each).
+* **`delta_debugging.py`** + **`delta_debugging_output.md`** — input minimization to the 1-minimal
+  failure-inducing input.
+* **`trace_run.py`** + **`trace_output.md`** — a runtime trace produced by wrapping the parser's
+  functions (the source is never modified).
+* **`mutation_test.py`** + **`mutation_output.md`** — mutation testing (test-suite quality).
+* **`test_results.md`** — the full test suite before vs after the fix (red → green).
 
-### 5. Report (`report.md`)
-The full debugging report: environment, failure reproduction, the test oracle, the test suite,
-scientific debugging, delta debugging, tracing, program slicing, the defect–infection–failure chain,
-the patch, validation, and the two bonuses (regression test and mutation testing).
+### 5. Report and Written Answers
+* **`report.md`** — the full debugging report in **English** (the primary deliverable; 13 sections).
+* **`exam_answers.md`** — the answers for the hand-written exam paper, in **Turkish**, at the same depth
+  as the report.
+* **`question_explanations.md`** — detailed concept and learning notes per question, in **Turkish**.
+
+### 6. Course Material and Tooling
+* **`FINAL_QUESTION.md`** — the exam questions (9 + 2 bonuses).
+* **`Yazilimlarda_Hata_Ayiklama_TakeHome_Final_Sinav_Kagidi.docx.md`** — the official exam paper
+  (Turkish), converted to Markdown.
+* **`docs/`** — the instructor's `report_template.md` and grading `rubric.md`.
+* **`.README_DEFAULT.md`** — the original starter README shipped with the assignment.
+* **`requirements.txt`** — Python dependencies (`pytest`).
+* **`make_submission.ps1`** — builds the flat submission `.zip`.
+* **`CLAUDE.md`** — project memory and working rules used during development.
+* **`claude_mistakes.md`** — a running log of mistakes made and corrected during development.
 
 ## 🚀 Installation and Execution
 
