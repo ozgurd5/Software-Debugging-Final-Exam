@@ -327,3 +327,36 @@ patch'in (S9) nereye gerektiğini gösterir.
 ### 6. Bizim çıktımız
 `debugging_logs/trace_run.py` (sarmalayıcı tracer) + `debugging_logs/trace_output.md`. Doldurulmuş
 analiz `report.md` §7 ve `exam_answers.md` S6'da.
+
+---
+
+## Soru 7 — Program Slicing / Dependency Analysis
+
+### 1. Program slicing nedir?
+Bir programın, belirli bir noktadaki belirli bir **değişkenin değerini etkileyen** ifadelerinin kümesini
+çıkarmak. "Bu değişken NEDEN bu değerde?" sorusunu, ilgisiz kodu eleyerek cevaplar.
+
+### 2. Backward (geri) slice vs forward (ileri) slice
+- **Backward slice:** bir noktadan **geriye** bakar — "bu değişkenin buradaki değerine hangi ifadeler
+  katkıda bulundu?" Çöküşü incelerken kullandığımız budur: `value`'nun (parse_bool, s.150) `None`
+  olmasına yol açan ifadeleri geriye doğru izleriz.
+- **Forward slice:** tersidir — "bu değişkeni DEĞİŞTİRİRSEM hangi satırlar etkilenir?"
+
+### 3. Veri bağımlılığı (data dependency)
+Slice'ın iskeleti veri bağımlılığıdır: bir ifade, kullandığı değeri başka bir ifade ürettiği için ona
+bağımlıdır. Bizdeki zincir: `json.load` `None`'u üretir → `normalize_features` onu `parse_bool`'a verir
+→ `parse_bool` `.lower()`'da kullanır. Her ok bir veri bağımlılığı.
+
+### 4. Bu hatadaki slice (nasıl çıkardık)
+S6 trace'i + kodu okuyarak `value`'nun kaynağını geriye izledik:
+- **Kritik değişken:** `value` (parse_bool, `None`).
+- **Input alanı:** `features.debug` = `null`.
+- **Fonksiyonlar:** load_config → json.load → normalize_config → normalize_features → parse_bool.
+- **Kritik incelik (s.73):** `features.get("debug", False)` — varsayılan `False`, anahtar **yokken**
+  devreye girer; ama anahtar `null` **değerle var olduğu** için `.get` `None` döndürür. Yani varsayılan
+  burada korumaz.
+
+### 5. Neden değerli?
+Slice, "kocaman programın hangi birkaç satırı bu çöküşe yol açtı?" sorusunu cevaplar. İlgisiz onlarca
+satırı eleyip dikkati kritik bağımlılık zincirine odaklar ve patch'i (S9) tam doğru yere koymamızı
+sağlar: zincirin neresini düzeltmeliyiz (`parse_bool`'un tip varsayımı).

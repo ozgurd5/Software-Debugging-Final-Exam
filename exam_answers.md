@@ -165,11 +165,29 @@ Trace, `debugging_logs/trace_run.py` ile üretildi: parser fonksiyonları çalı
 ---
 
 ## Soru 7 — Program Slicing / Dependency Analysis
-1. **Failure anındaki kritik değişken:**
-2. **Hangi input alanından geliyor:**
-3. **Hangi fonksiyonlarda işlendi:**
-4. **Üzerinde yapılan varsayım:**
+1. **Failure anındaki kritik değişken:** `parse_bool`'un `value` parametresi (`config_parser.py:131`).
+   Çöküş anında `None` tutar; `value.lower()` (satır 150) `AttributeError`'ı fırlatan ifadedir.
+2. **Hangi input alanından geliyor:** Config'teki `features.debug` — `large_config_failure.json`'da
+   `null`. JSON `null`, parse edilince Python `None` olur.
+3. **Hangi fonksiyonlarda işlendi (backward slice):**
+   `load_config` (s.9) → `json.load` (s.14, `null`→`None`) → `normalize_config` (s.24) →
+   `normalize_features` (s.73: `parse_bool(features.get("debug", False))`) → `parse_bool` (s.131 → 150).
+4. **Üzerinde yapılan varsayım:** `parse_bool`, `bool` olmayan her değeri **string-benzeri** sayar
+   (`.lower()`'ı olduğunu varsayar) — kendi yorumunda yazılı (s.147–149). `None` ne `bool` ne `str`;
+   satır 144'ten geçer, satır 150'de çöker.
 5. **Slice'taki en önemli satırlar:**
+
+| Satır | İfade | Slice'taki rolü |
+|---|---|---|
+| 14 | `raw_config = json.load(f)` | JSON `null` → Python `None` |
+| 24 | `features = normalize_features(config.get("features", {}))` | features dict'ini iletir |
+| 73 | `debug = parse_bool(features.get("debug", False))` | `None`, `parse_bool`'a ulaşır (bkz. not) |
+| 144 | `if isinstance(value, bool):` | yalnızca `bool` işlenir; `None` düşmez |
+| 150 | `lowered = value.lower()` | **çöküş** — `value`'yu string varsayar |
+
+**Not (satır 73):** `features.get("debug", False)` bu hatayı **engellemez**. Varsayılan `False` yalnızca
+`debug` anahtarı **yokken** döner; burada anahtar `null` **değerle var**, yani `.get` `None` döndürür ve
+bu `parse_bool`'a geçer.
 
 ---
 

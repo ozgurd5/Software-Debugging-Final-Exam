@@ -238,13 +238,44 @@ Interpretation:
 
 ### Critical variable
 
+`value`, the parameter of `parse_bool` (`config_parser.py:131`). At the crash it holds `None`, and
+`value.lower()` (line 150) is the statement that raises the `AttributeError`.
+
 ### Input field affecting it
+
+`features.debug` in the JSON config — set to `null` in `inputs/large_config_failure.json`. A JSON
+`null` becomes Python `None` when parsed.
 
 ### Relevant functions
 
+The backward slice (what determines `value`) runs through:
+
+1. `load_config` (line 9) → `json.load(f)` (line 14): parses the file; `null` becomes `None` in
+   `raw_config`.
+2. `normalize_config` (line 19) → line 24: `normalize_features(config.get("features", {}))`.
+3. `normalize_features` (line 68) → line 73: `debug = parse_bool(features.get("debug", False))` — passes
+   `None` into `parse_bool`.
+4. `parse_bool` (line 131): line 144 lets a `bool` through; line 150 runs `value.lower()` on `None`.
+
 ### Relevant lines
 
+| Line | Statement | Role in the slice |
+|---|---|---|
+| 14 | `raw_config = json.load(f)` | JSON `null` becomes Python `None` |
+| 24 | `features = normalize_features(config.get("features", {}))` | routes the features dict onward |
+| 73 | `debug = parse_bool(features.get("debug", False))` | `None` reaches `parse_bool` (see note) |
+| 144 | `if isinstance(value, bool):` | only `bool` is handled; `None` falls through |
+| 150 | `lowered = value.lower()` | **crash** — assumes `value` is a string |
+
 ### Explanation
+
+The assumption that breaks: `parse_bool` treats every non-`bool` value as string-like (it calls
+`.lower()`), stated in its own comment (lines 147–149). `None` is neither `bool` nor `str`, so it slips
+past line 144 and crashes at line 150.
+
+Note on line 73: `features.get("debug", False)` does **not** guard against this. The default `False` is
+returned only when the `debug` key is *absent*; here the key is *present* with value `null`, so `.get`
+returns `None`, which is then handed to `parse_bool`.
 
 ---
 
