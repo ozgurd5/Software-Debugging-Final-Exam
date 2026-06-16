@@ -59,7 +59,6 @@ Each technique has a runnable script and a captured `.md` output:
 * **`requirements.txt`** — Python dependencies (`pytest`).
 * **`make_submission.ps1`** — builds the flat submission `.zip`.
 * **`CLAUDE.md`** — project memory and working rules used during development.
-* **`claude_mistakes.md`** — a running log of mistakes made and corrected during development.
 
 ## 🚀 Installation and Execution
 

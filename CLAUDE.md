@@ -48,7 +48,6 @@ Software-Debugging-Final-Exam/   <- repo kökü = PyCharm Project Root + Source 
 ├─ FINAL_QUESTION.md     <- hoca: soru metni
 ├─ CLAUDE.md             <- bu dosya (hafıza)
 ├─ exam_answers.md       <- sınav kağıdı cevapları (Türkçe)
-├─ claude_mistakes.md    <- hata günlüğü + sayaç
 ├─ question_explanations.md <- soru başına öğrenme notları (kavram/ön bilgi)
 ├─ make_submission.ps1   <- teslim zip'ini üretir (yalnızca yerel)
 ├─ requirements.txt      <- pytest (yalnızca yerel)
@@ -126,22 +125,18 @@ Bağlayıcıdır.
     (neyin değiştiğini/kaldırıldığını/kararını) anlatmaz. Yalnızca **güncel durumu** mutlak biçimde
     yaz; "kaldırıldı", "sonra", "artık", "karar verildi" gibi geçmiş/değişim ifadeleri kullanma.
     Hedef: bu projeyi ve bu konuşmayı hiç bilmeyen bir insan/AI dosyayı okuyup anlayabilsin.
-12. **Hata günlüğü (`claude_mistakes.md`).** Kullanıcı seni her düzelttiğinde: hatayı, neden saçma
-    olduğunu, neyi gözden kaçırdığını yaz; en üstteki **hata sayacını +1** artır. Hata kullanıcının
-    zamanını çalar ve güvenilirliğini düşürür. **Atlama/kaçma YOK** — küçük düzeltme/iyileştirme dahil
-    HER düzeltme, olduğu anda loglanır; "buna gerek yok" deyip geçme.
-13. **Satır sarma (markdown).** Uzun satırları ~100 karakterde elle böl (hard wrap) ki IDE'de
+12. **Satır sarma (markdown).** Uzun satırları ~100 karakterde elle böl (hard wrap) ki IDE'de
     kaynak olarak yatay kaydırmadan okunsun. Liste maddelerinin devam satırlarını 2 boşluk girintile.
     (PyCharm'da Settings → Editor → General → Soft Wraps ile de açılabilir.)
-14. **Kod tutarlılığı.** Yeni kod mevcut kod stiline uysun. Gereksiz/uzun yorum veya docstring ekleme;
+13. **Kod tutarlılığı.** Yeni kod mevcut kod stiline uysun. Gereksiz/uzun yorum veya docstring ekleme;
     neyin ne yaptığını zaten 3 açıklama dosyası (`report.md`, `exam_answers.md`,
     `question_explanations.md`) anlatır.
-15. **Gereksiz karmaşıklıktan kaçın.** Kullanılmayan fonksiyon/parametre/soyutlama ekleme; en yalın
+14. **Gereksiz karmaşıklıktan kaçın.** Kullanılmayan fonksiyon/parametre/soyutlama ekleme; en yalın
     çözümü seç. Tek fonksiyon yetiyorsa ikincisini yazma. Sadelik > gösteriş.
-16. **Önce öğret, sonra sor.** Bir karar kavram bilgisi gerektiriyorsa, önce o kavramı anlat
+15. **Önce öğret, sonra sor.** Bir karar kavram bilgisi gerektiriyorsa, önce o kavramı anlat
     (`question_explanations.md`'de veya yanıtta); kullanıcı anlamadan seçim yaptırma. Öğrenmek bu
     projenin amacıdır.
-17. **Nesnel değerlendir, körü körüne onaylama.** Kullanıcının iddialarını da bağımsız olarak,
+16. **Nesnel değerlendir, körü körüne onaylama.** Kullanıcının iddialarını da bağımsız olarak,
     baştan ve kanıtla değerlendir; kullanıcı da yanılabilir. Refleksif "haklısın" deme — önce gerekçe/
     kanıt göster; doğrulayınca katıl, yanlışsa kanıtla karşı çık. (Kural 3'ü güçlendirir; yağcılık yok.)
 
@@ -150,7 +145,7 @@ Zip'in **içi DÜZ** olmalı: kökünde doğrudan `src/ tests/ inputs/ report.md
 (sarmalayıcı klasör YOK). Zip adı: **`2022280084_ozgurdalbeler_final.zip`**, `make_submission.ps1` ile üretilir.
 - **Girenler:** `src/`, `tests/`, `inputs/`, `report.md`, `README.md`, `debugging_logs/`
 - **GİRMEYENLER:** `docs/`, `FINAL_QUESTION.md` (hoca ref); `CLAUDE.md`, `exam_answers.md`,
-  `claude_mistakes.md`, `question_explanations.md`, `make_submission.ps1`, `requirements.txt` (çalışma); `.venv/ .idea/ .pytest_cache/ .git/ .gitignore`, `.docx`
+  `question_explanations.md`, `make_submission.ps1`, `requirements.txt` (çalışma); `.venv/ .idea/ .pytest_cache/ .git/ .gitignore`, `.docx`
 - **Ayrıca** yazılı sınav kağıdı resmî sınav tarihinde elden; **tutanakta imza zorunlu** (yoksa girmemiş sayılır).
 
 ### 2.2 Bilinen tutarsızlıklar (sınav belgeleri arası)

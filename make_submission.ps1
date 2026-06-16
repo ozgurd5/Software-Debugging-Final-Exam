@@ -3,7 +3,7 @@
 #
 # Zip'in KOKUNE su ogeleri koyar (sarmalayici klasor olmadan, ZIP standardi ileri-slash ile):
 #   src/  tests/  inputs/  report.md  README.md  debugging_logs/
-# Diger her sey (docs/, FINAL_QUESTION.md, CLAUDE.md, exam_answers.md, claude_mistakes.md,
+# Diger her sey (docs/, FINAL_QUESTION.md, CLAUDE.md, exam_answers.md,
 # requirements.txt, make_submission.ps1, .venv, .idea ...) teslime GIRMEZ.
 # __pycache__/.pytest_cache/*.pyc temizlenir. Bos debugging_logs/ klasoru korunur.
 #
